@@ -40,6 +40,17 @@ npm start            # http://localhost:3000
 docker build -t gem-rush . && docker run -p 3000:3000 gem-rush
 ```
 
+### Troubleshooting: "Cannot find native binding" (Rolldown / Vite)
+
+npm skipped Vite's platform-specific binary. This usually means the Node version is too old, or the install was
+interrupted (npm bug [#4828](https://github.com/npm/cli/issues/4828)). Check `node -v` (needs ≥ 22.12), then reinstall:
+
+```powershell
+# Windows PowerShell (macOS/Linux: rm -rf node_modules)
+Remove-Item -Recurse -Force node_modules
+npm install
+```
+
 ### QA mode (forced outcomes)
 
 ```bash
