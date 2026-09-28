@@ -2,14 +2,15 @@ import { wait } from './tween';
 
 /**
  * Lets the player cut presentation pauses short ("tap to skip"). Waits started
- * through the signal resolve early when `trigger()` is called.
+ * through the signal resolve early when `trigger()` is called. Listeners are
+ * removed as soon as their wait settles, so long sessions never accumulate them.
  */
 export class SkipSignal {
-  private listeners: (() => void)[] = [];
+  private readonly listeners = new Set<() => void>();
 
   trigger(): void {
-    const listeners = this.listeners;
-    this.listeners = [];
+    const listeners = [...this.listeners];
+    this.listeners.clear();
     listeners.forEach((listener) => listener());
   }
 
@@ -18,6 +19,11 @@ export class SkipSignal {
   }
 
   race(promise: Promise<void>): Promise<void> {
-    return Promise.race([promise, new Promise<void>((resolve) => this.listeners.push(resolve))]);
+    let listener!: () => void;
+    const skipped = new Promise<void>((resolve) => {
+      listener = resolve;
+      this.listeners.add(listener);
+    });
+    return Promise.race([promise, skipped]).finally(() => this.listeners.delete(listener));
   }
 }

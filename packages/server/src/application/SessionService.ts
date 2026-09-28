@@ -46,6 +46,7 @@ export class SessionService {
       throw new AppError('UNAUTHORIZED', 'Session expired or unknown');
     }
     session.lastActiveAt = this.clock();
+    await this.repository.save(session);
     return session;
   }
 

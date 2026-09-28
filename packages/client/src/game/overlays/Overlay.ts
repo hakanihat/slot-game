@@ -53,6 +53,8 @@ export abstract class Overlay extends Container {
   }
 
   protected async fadeOut(): Promise<void> {
+    // Taps that were raced against a timeout and never came are no longer wanted.
+    this.tapListeners = [];
     await tween(this as Container, { alpha: 0 }, { duration: 220 }).finished;
     this.visible = false;
   }

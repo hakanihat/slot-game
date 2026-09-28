@@ -17,6 +17,7 @@
   --font-display: 'Cinzel', Georgia, serif;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   color-scheme: dark;
+  accent-color: var(--gold);
 }
 
 * {

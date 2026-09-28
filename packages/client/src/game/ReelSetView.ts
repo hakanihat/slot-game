@@ -1,7 +1,7 @@
 import type { GameConfig, LineWin, Position, ScatterWin, SymbolId } from '@gem-rush/shared';
 import { Container } from 'pixi.js';
 import type { SpeedProfile } from '../config/presentation';
-import { wait } from '../core/tween';
+import { SkipSignal } from '../core/SkipSignal';
 import type { SymbolTextures } from './art/SymbolTextures';
 import { ReelView } from './ReelView';
 import { WinLinesView } from './WinLinesView';
@@ -39,7 +39,7 @@ export class ReelSetView extends Container {
   readonly reels: ReelView[];
   private readonly winLines: WinLinesView;
   private skipRequested = false;
-  private skipWaiters: (() => void)[] = [];
+  private readonly skip = new SkipSignal();
 
   constructor(
     textures: SymbolTextures,
@@ -82,8 +82,7 @@ export class ReelSetView extends Container {
   /** Makes any in-flight stop sequence finish immediately. */
   requestQuickStop(): void {
     this.skipRequested = true;
-    this.skipWaiters.forEach((resolve) => resolve());
-    this.skipWaiters = [];
+    this.skip.trigger();
   }
 
   async stopOn(grid: readonly (readonly SymbolId[])[], options: StopOptions): Promise<void> {
@@ -158,7 +157,6 @@ export class ReelSetView extends Container {
   }
 
   private skippableWait(ms: number): Promise<void> {
-    if (this.skipRequested) return Promise.resolve();
-    return Promise.race([wait(ms), new Promise<void>((resolve) => this.skipWaiters.push(resolve))]);
+    return this.skipRequested ? Promise.resolve() : this.skip.wait(ms);
   }
 }
