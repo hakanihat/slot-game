@@ -13,6 +13,11 @@ const EnvSchema = z.object({
   SESSION_IDLE_MINUTES: z.coerce.number().positive().default(120),
   /** Comma-separated list of allowed origins; unset = same-origin only. */
   CORS_ORIGIN: z.string().optional(),
+  /** Enables QA forced outcomes (`cheat` on /api/spin). Never enable in production. */
+  ENABLE_CHEATS: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
   /** Built client to serve as static files; skipped when the folder is absent. */
   CLIENT_DIST: z.string().default(defaultClientDist),
 });
@@ -24,6 +29,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const parsed = EnvSchema.safeParse(source);
   if (!parsed.success) {
     throw new Error(`Invalid environment configuration:\n${z.prettifyError(parsed.error)}`);
+  }
+  if (parsed.data.ENABLE_CHEATS && parsed.data.NODE_ENV === 'production') {
+    throw new Error('ENABLE_CHEATS must not be used with NODE_ENV=production');
   }
   return parsed.data;
 }

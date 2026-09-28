@@ -1,13 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import {
   GAME_CONFIG,
+  type CheatScenario,
   type FeatureSummary,
   type FreeSpinsState,
   type HistoryEntry,
   type SpinOutcome,
   type SpinResponse,
 } from '@gem-rush/shared';
+import { stopsForScenario } from '../domain/math/cheats.js';
 import type { EngineResult, SlotEngine } from '../domain/math/SlotEngine.js';
+import type { MathModel } from '../domain/math/types.js';
 import type { Session } from '../domain/session/Session.js';
 import { AppError } from './errors.js';
 import { KeyedMutex } from './KeyedMutex.js';
@@ -28,17 +31,26 @@ export class SpinService {
     private readonly repository: SessionRepository,
     private readonly wallet: Wallet,
     private readonly clock: Clock,
+    private readonly model: MathModel,
+    private readonly cheatsEnabled = false,
   ) {}
 
-  spin(session: Session, requestedBet: number): Promise<SpinResponse> {
-    return this.mutex.run(session.id, () => this.playRound(session, requestedBet));
+  spin(session: Session, requestedBet: number, cheat?: CheatScenario): Promise<SpinResponse> {
+    if (cheat && !this.cheatsEnabled) {
+      return Promise.reject(new AppError('FORBIDDEN', 'Cheats are disabled on this server'));
+    }
+    return this.mutex.run(session.id, () => this.playRound(session, requestedBet, cheat));
   }
 
   history(session: Session): readonly HistoryEntry[] {
     return session.history;
   }
 
-  private async playRound(session: Session, requestedBet: number): Promise<SpinResponse> {
+  private async playRound(
+    session: Session,
+    requestedBet: number,
+    cheat?: CheatScenario,
+  ): Promise<SpinResponse> {
     const roundId = randomUUID();
     const inFeature = session.freeSpins !== null && session.freeSpins.remaining > 0;
     // During Free Spins the stake is locked to the triggering bet and not charged.
@@ -51,7 +63,10 @@ export class SpinService {
 
     let result: EngineResult;
     try {
-      result = this.engine.spin(inFeature ? 'freeSpins' : 'base', bet);
+      const mode = inFeature ? 'freeSpins' : 'base';
+      result = cheat
+        ? this.engine.spinAt(mode, bet, stopsForScenario(this.model, mode, cheat))
+        : this.engine.spin(mode, bet);
     } catch (error) {
       if (!inFeature) await this.wallet.credit(session.id, bet, `refund:${roundId}`);
       throw error;

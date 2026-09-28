@@ -1,9 +1,16 @@
+import type { GameConfig } from '../game/config.js';
 import type { SymbolId } from '../game/symbols.js';
 
 /**
  * HTTP contract between client and server. All money values are integers in
  * minor currency units (cents) to avoid floating point rounding errors.
  */
+
+/** `GET /api/game`: the public game definition plus figures derived from the server-side math. */
+export type GameInfo = GameConfig & {
+  /** Theoretical return to player (0-1), computed from the live reel strips. */
+  readonly rtp: number;
+};
 
 /** A grid position: `reel` is the column (0-4), `row` the visible row (0-2, top to bottom). */
 export interface Position {
@@ -70,8 +77,16 @@ export interface CreateSessionResponse {
   readonly state: SessionState;
 }
 
+/**
+ * Forced outcomes for development and QA ("cheat tool"). Only honoured when
+ * the server runs with `ENABLE_CHEATS=true` — never in production.
+ */
+export const CHEAT_SCENARIOS = ['freeSpins', 'bigWin', 'anticipation'] as const;
+export type CheatScenario = (typeof CHEAT_SCENARIOS)[number];
+
 export interface SpinRequest {
   readonly bet: number;
+  readonly cheat?: CheatScenario;
 }
 
 /** Summary of a Free Spins feature, sent with the spin that completed it. */
@@ -109,6 +124,7 @@ export type ApiErrorCode =
   | 'INVALID_BET'
   | 'REFILL_NOT_ALLOWED'
   | 'NOT_FOUND'
+  | 'FORBIDDEN'
   | 'INTERNAL';
 
 export interface ApiErrorBody {

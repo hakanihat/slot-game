@@ -29,6 +29,7 @@ describe('HTTP API', () => {
     expect(response.statusCode).toBe(200);
     const body = response.json<Record<string, unknown>>();
     expect(body).toMatchObject({ reels: 5, rows: 3 });
+    expect(body.rtp).toBeCloseTo(0.961, 2);
     expect(JSON.stringify(body)).not.toMatch(/reelSets|strips/);
   });
 
@@ -83,5 +84,38 @@ describe('HTTP API', () => {
     });
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({ error: { code: 'BAD_REQUEST' } });
+  });
+});
+
+describe('QA cheats', () => {
+  const spinWithCheat = async (cheatsEnabled: boolean) => {
+    const container = createContainer({
+      startingBalance: 100_000,
+      idleTimeoutMs: 60_000,
+      cheatsEnabled,
+    });
+    const app = await buildApp(container);
+    const { token } = (
+      await app.inject({ method: 'POST', url: '/api/sessions' })
+    ).json<CreateSessionResponse>();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/spin',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { bet: 100, cheat: 'freeSpins' },
+    });
+    await app.close();
+    return response;
+  };
+
+  it('are rejected unless explicitly enabled', async () => {
+    const response = await spinWithCheat(false);
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toMatchObject({ error: { code: 'FORBIDDEN' } });
+  });
+
+  it('force the requested scenario when enabled', async () => {
+    const response = await spinWithCheat(true);
+    expect(response.json<SpinResponse>().outcome.freeSpinsAwarded).toBe(10);
   });
 });

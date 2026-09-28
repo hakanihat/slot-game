@@ -9,12 +9,15 @@ async function main() {
   const container = createContainer({
     startingBalance: env.STARTING_BALANCE,
     idleTimeoutMs: env.SESSION_IDLE_MINUTES * 60_000,
+    cheatsEnabled: env.ENABLE_CHEATS,
   });
   const app = await buildApp(container, {
     logLevel: env.LOG_LEVEL,
     corsOrigins: env.CORS_ORIGIN?.split(',').map((origin) => origin.trim()),
     clientDist: env.CLIENT_DIST,
   });
+
+  if (env.ENABLE_CHEATS) app.log.warn('QA cheats are ENABLED — outcomes can be forced');
 
   const sweeper = setInterval(() => {
     container.sessions

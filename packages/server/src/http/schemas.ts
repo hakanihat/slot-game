@@ -1,8 +1,10 @@
+import { CHEAT_SCENARIOS } from '@gem-rush/shared';
 import { z } from 'zod';
 import { AppError } from '../application/errors.js';
 
 export const SpinRequestSchema = z.object({
   bet: z.number().int().positive(),
+  cheat: z.enum(CHEAT_SCENARIOS).optional(),
 });
 
 /** Parses untrusted input, converting validation failures into a 400. */

@@ -7,6 +7,7 @@ const STATUS_BY_CODE: Record<ApiErrorCode, number> = {
   INVALID_BET: 422,
   REFILL_NOT_ALLOWED: 409,
   NOT_FOUND: 404,
+  FORBIDDEN: 403,
   INTERNAL: 500,
 };
 

@@ -37,7 +37,7 @@ export async function buildApp(
   await gameRoutes(app, container);
 
   if (options.clientDist && existsSync(options.clientDist)) {
-    await app.register(fastifyStatic, { root: options.clientDist, wildcard: false });
+    await app.register(fastifyStatic, { root: options.clientDist });
     app.setNotFoundHandler((request, reply) =>
       request.url.startsWith('/api/')
         ? reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Route not found' } })

@@ -29,10 +29,13 @@ export class SlotEngine {
   ) {}
 
   spin(mode: SpinMode, bet: number): EngineResult {
-    const { config } = this.model;
-    const reelSet = this.model.reelSets[mode];
-    const stops = reelSet.map((strip) => this.rng.nextInt(strip.length));
-    const grid = windowAt(reelSet, stops, config.rows);
+    const stops = this.model.reelSets[mode].map((strip) => this.rng.nextInt(strip.length));
+    return this.spinAt(mode, bet, stops);
+  }
+
+  /** Evaluates predetermined stops — used by the QA cheat tool and replays. */
+  spinAt(mode: SpinMode, bet: number, stops: readonly number[]): EngineResult {
+    const grid = windowAt(this.model.reelSets[mode], stops, this.model.config.rows);
     return this.evaluate(mode, bet, stops, grid);
   }
 

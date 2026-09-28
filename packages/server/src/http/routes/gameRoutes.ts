@@ -1,6 +1,7 @@
 import { GAME_CONFIG } from '@gem-rush/shared';
 import type {
   CreateSessionResponse,
+  GameInfo,
   HistoryResponse,
   SessionState,
   SpinResponse,
@@ -14,10 +15,12 @@ import { parse, SpinRequestSchema } from '../schemas.js';
  * REST API. Handlers stay thin: authenticate, validate, delegate to an
  * application service, return its DTO.
  */
-export async function gameRoutes(app: FastifyInstance, { sessions, spins }: Container) {
+export async function gameRoutes(app: FastifyInstance, { sessions, spins, rtp }: Container) {
+  const gameInfo: GameInfo = { ...GAME_CONFIG, rtp };
+
   app.get('/api/health', async () => ({ status: 'ok' }));
 
-  app.get('/api/game', async () => GAME_CONFIG);
+  app.get('/api/game', async (): Promise<GameInfo> => gameInfo);
 
   app.post('/api/sessions', async (_request, reply): Promise<CreateSessionResponse> => {
     const { token, session } = await sessions.create();
@@ -37,8 +40,8 @@ export async function gameRoutes(app: FastifyInstance, { sessions, spins }: Cont
 
   app.post('/api/spin', async (request): Promise<SpinResponse> => {
     const session = await sessions.authenticate(bearerToken(request));
-    const { bet } = parse(SpinRequestSchema, request.body);
-    return spins.spin(session, bet);
+    const { bet, cheat } = parse(SpinRequestSchema, request.body);
+    return spins.spin(session, bet, cheat);
   });
 
   app.get('/api/history', async (request): Promise<HistoryResponse> => {
