@@ -18,6 +18,11 @@ export class ApiError extends Error {
     super(message);
     this.name = 'ApiError';
   }
+
+  /** Worth retrying: the server was unreachable or failed, rather than rejecting the request. */
+  get isTransient(): boolean {
+    return this.code === 'NETWORK' || this.status >= 500;
+  }
 }
 
 const REQUEST_TIMEOUT_MS = 10_000;

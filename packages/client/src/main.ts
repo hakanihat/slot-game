@@ -10,6 +10,7 @@ import { SymbolTextures } from './game/art/SymbolTextures';
 import { GameScene } from './game/GameScene';
 import { Hud } from './hud/Hud';
 import { ApiClient, ApiError } from './net/ApiClient';
+import { withRetry } from './net/retry';
 import { tokenStorage } from './net/tokenStorage';
 import './styles/main.css';
 
@@ -57,7 +58,17 @@ async function boot(): Promise<void> {
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const api = new ApiClient();
-  const [info, session] = await Promise.all([api.getGameInfo(), openSession(api), loadArtFonts()]);
+  const loaderText = document.querySelector('.loader__text');
+  const fonts = loadArtFonts();
+  const [info, session] = await withRetry(
+    () => Promise.all([api.getGameInfo(), openSession(api)]),
+    {
+      onRetry: () => {
+        if (loaderText) loaderText.textContent = 'Connecting to the game server…';
+      },
+    },
+  );
+  await fonts;
   const format = (cents: number) => formatMoney(cents, info.currency);
 
   const app = new Application();
@@ -127,5 +138,11 @@ boot().catch((error: unknown) => {
   console.error(error);
   const text = document.querySelector('.loader__text');
   if (text)
-    text.textContent = 'The game could not be loaded. Please check your connection and refresh.';
+    text.textContent = 'The game could not be loaded. Please check your connection and try again.';
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.className = 'btn btn--primary';
+  retry.textContent = 'Try again';
+  retry.addEventListener('click', () => window.location.reload());
+  document.querySelector('.loader')?.append(retry);
 });
