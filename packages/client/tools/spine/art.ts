@@ -1,24 +1,27 @@
-import type { SymbolId } from '@gem-rush/shared';
+import { DISPLAY_FONT } from '../../src/game/art/fonts';
 
 /**
- * Procedural symbol artwork (Canvas 2D). Drawing in code keeps the repo free
- * of binary assets, makes every symbol resolution-independent, and gives the
- * reels and the HUD paytable one shared source of truth.
+ * Procedural artwork for the Spine symbol rig (Canvas 2D, build-time only).
+ *
+ * Every function draws ONE rig part centred on the context origin, so the
+ * generator can bake each part into its own atlas region: gem bodies, labels,
+ * and the shared FX layers (glow, shine, sparkle, rays) that the animations
+ * move independently.
  */
 
-export const DISPLAY_FONT = 'Cinzel';
-const FONT_STACK = `"${DISPLAY_FONT}", Georgia, "Times New Roman", serif`;
+export type Point = readonly [number, number];
 
-interface Palette {
+export interface Palette {
   readonly light: string;
   readonly mid: string;
   readonly dark: string;
   readonly glow: string;
 }
 
-type Point = readonly [number, number];
+export { DISPLAY_FONT };
+const FONT_STACK = `"${DISPLAY_FONT}", Georgia, "Times New Roman", serif`;
 
-const GEM_PALETTES = {
+export const PALETTES = {
   RUBY: { light: '#ffb3c0', mid: '#e3143f', dark: '#5c0016', glow: '#ff2a55' },
   SAPPHIRE: { light: '#b5ddff', mid: '#1f6fe8', dark: '#081a5c', glow: '#3a8dff' },
   EMERALD: { light: '#b6ffd6', mid: '#12b35a', dark: '#033f21', glow: '#2aff8a' },
@@ -27,7 +30,10 @@ const GEM_PALETTES = {
   WILD: { light: '#fff6c2', mid: '#ffbf1f', dark: '#7a4200', glow: '#ffd24a' },
 } as const satisfies Record<string, Palette>;
 
-const ROYAL_COLORS: Readonly<Record<'J' | 'Q' | 'K' | 'A', string>> = {
+export type RoyalId = 'J' | 'Q' | 'K' | 'A';
+export type GemId = 'RUBY' | 'SAPPHIRE' | 'EMERALD' | 'AMETHYST';
+
+export const ROYAL_COLORS: Readonly<Record<RoyalId, string>> = {
   J: '#45f0c0',
   Q: '#ff5ca8',
   K: '#ffa53a',
@@ -48,8 +54,12 @@ const star = (points: number, outer: number, inner: number): Point[] =>
     return [Math.cos(a) * r, Math.sin(a) * r] as const;
   });
 
-/** Gem outlines in a unit box (-1..1). Each gem gets a distinct cut so shape alone identifies it. */
-const GEM_SHAPES: Readonly<Record<'RUBY' | 'SAPPHIRE' | 'EMERALD' | 'AMETHYST', Point[]>> = {
+/**
+ * Outlines in a unit box (-1..1, canvas y-down). Each gem has a distinct cut so
+ * shape alone identifies it; the same outlines become the Spine clipping
+ * polygons that keep the shine sweep inside the gem.
+ */
+export const OUTLINES: Readonly<Record<GemId | 'WILD' | 'SCATTER', Point[]>> = {
   RUBY: polygon(8, 0.92, 0.92, -Math.PI / 2 + Math.PI / 8),
   SAPPHIRE: polygon(6, 0.88, 0.98),
   EMERALD: [
@@ -71,6 +81,18 @@ const GEM_SHAPES: Readonly<Record<'RUBY' | 'SAPPHIRE' | 'EMERALD' | 'AMETHYST', 
     [-0.95, 0.6],
     [-0.18, -0.88],
   ],
+  WILD: polygon(8, 1, 1, -Math.PI / 2),
+  SCATTER: star(5, 1.05, 0.5),
+};
+
+/** Inner "table" size per outline — smaller tables read as deeper cuts. */
+export const TABLE_SCALE: Readonly<Record<keyof typeof OUTLINES, number>> = {
+  RUBY: 0.52,
+  SAPPHIRE: 0.52,
+  EMERALD: 0.52,
+  AMETHYST: 0.52,
+  WILD: 0.6,
+  SCATTER: 0.45,
 };
 
 /** Light comes from the top-left, like most slot art, so facets read consistently. */
@@ -93,19 +115,18 @@ function tracePath(ctx: CanvasRenderingContext2D, points: readonly Point[], scal
 }
 
 /**
- * Draws a faceted gem: the crown facets between the outline and an inner
- * "table" are shaded by how much each faces the light.
+ * Faceted gem body: crown facets between the outline and an inner "table",
+ * each shaded by how much it faces the light.
  */
-function drawFacetedGem(
+export function drawFacetedGem(
   ctx: CanvasRenderingContext2D,
   outline: readonly Point[],
   palette: Palette,
   radius: number,
-  tableScale = 0.52,
+  tableScale: number,
 ): void {
   const table = outline.map(([x, y]) => [x * tableScale, y * tableScale - 0.04] as const);
 
-  // Glow + base silhouette.
   ctx.save();
   ctx.shadowColor = palette.glow;
   ctx.shadowBlur = radius * 0.28;
@@ -114,7 +135,6 @@ function drawFacetedGem(
   ctx.fill();
   ctx.restore();
 
-  // Crown facets.
   outline.forEach((point, i) => {
     const next = outline[(i + 1) % outline.length] as Point;
     const tablePoint = table[i] as Point;
@@ -137,7 +157,6 @@ function drawFacetedGem(
     ctx.stroke();
   });
 
-  // Table with a soft top-left highlight.
   tracePath(ctx, table, radius);
   const gradient = ctx.createLinearGradient(
     -radius * 0.5,
@@ -154,64 +173,14 @@ function drawFacetedGem(
   ctx.lineWidth = radius * 0.02;
   ctx.stroke();
 
-  // Outline rim.
   tracePath(ctx, outline, radius);
   ctx.strokeStyle = mix(palette.light, palette.mid, 0.3);
   ctx.lineWidth = radius * 0.035;
   ctx.stroke();
-
-  drawSparkle(ctx, -radius * 0.28, -radius * 0.36, radius * 0.2);
 }
 
-function drawSparkle(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  ctx.shadowColor = '#ffffff';
-  ctx.shadowBlur = size * 0.8;
-  ctx.beginPath();
-  for (let i = 0; i < 8; i += 1) {
-    const a = (i / 8) * Math.PI * 2;
-    const r = i % 2 === 0 ? size : size * 0.18;
-    ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-  }
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawLabel(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  y: number,
-  size: number,
-  palette: Palette,
-): void {
-  ctx.save();
-  ctx.font = `900 ${size}px ${FONT_STACK}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.lineJoin = 'round';
-  ctx.lineWidth = size * 0.22;
-  ctx.strokeStyle = palette.dark;
-  ctx.shadowColor = 'rgba(0,0,0,0.6)';
-  ctx.shadowBlur = size * 0.2;
-  ctx.strokeText(text, 0, y);
-  ctx.shadowBlur = 0;
-  const gradient = ctx.createLinearGradient(0, y - size / 2, 0, y + size / 2);
-  gradient.addColorStop(0, '#ffffff');
-  gradient.addColorStop(0.45, palette.light);
-  gradient.addColorStop(1, palette.mid);
-  ctx.fillStyle = gradient;
-  ctx.fillText(text, 0, y);
-  ctx.restore();
-}
-
-function drawRoyal(
-  ctx: CanvasRenderingContext2D,
-  letter: 'J' | 'Q' | 'K' | 'A',
-  radius: number,
-): void {
+/** Letter royals (J, Q, K, A) with a gradient fill and coloured glow. */
+export function drawRoyal(ctx: CanvasRenderingContext2D, letter: RoyalId, radius: number): void {
   const color = ROYAL_COLORS[letter];
   const size = radius * 1.45;
   ctx.save();
@@ -219,6 +188,14 @@ function drawRoyal(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.lineJoin = 'round';
+
+  // Fit and centre on the glyph's *ink*, not its advance box: some letters
+  // (Cinzel's swash Q) extend far beyond their advance width.
+  const metrics = ctx.measureText(letter);
+  const inkWidth = metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight;
+  const fit = Math.min(1, (radius * 1.9) / inkWidth);
+  ctx.scale(fit, fit);
+  ctx.translate((metrics.actualBoundingBoxLeft - metrics.actualBoundingBoxRight) / 2, 0);
 
   ctx.shadowColor = color;
   ctx.shadowBlur = radius * 0.3;
@@ -241,50 +218,90 @@ function drawRoyal(
   ctx.restore();
 }
 
-/** Renders one symbol onto a new square canvas of `size` pixels. */
-export function renderSymbol(id: SymbolId, size: number): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas 2D is not supported');
-
-  ctx.translate(size / 2, size / 2);
-  const radius = size * 0.4;
-
-  switch (id) {
-    case 'J':
-    case 'Q':
-    case 'K':
-    case 'A':
-      drawRoyal(ctx, id, radius);
-      break;
-    case 'RUBY':
-    case 'SAPPHIRE':
-    case 'EMERALD':
-    case 'AMETHYST':
-      drawFacetedGem(ctx, GEM_SHAPES[id], GEM_PALETTES[id], radius);
-      break;
-    case 'WILD':
-      drawFacetedGem(ctx, polygon(8, 1, 1, -Math.PI / 2), GEM_PALETTES.WILD, radius, 0.6);
-      drawLabel(ctx, 'WILD', radius * 0.12, radius * 0.62, GEM_PALETTES.WILD);
-      break;
-    case 'SCATTER':
-      drawFacetedGem(ctx, star(5, 1.05, 0.5), GEM_PALETTES.SCATTER, radius, 0.45);
-      drawLabel(ctx, 'BONUS', radius * 0.78, radius * 0.4, GEM_PALETTES.SCATTER);
-      break;
-  }
-  return canvas;
+/** Banner text (WILD / BONUS), drawn as its own part so it can bounce. */
+export function drawLabel(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  size: number,
+  palette: Palette,
+): void {
+  ctx.save();
+  ctx.font = `900 ${size}px ${FONT_STACK}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = size * 0.22;
+  ctx.strokeStyle = palette.dark;
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowBlur = size * 0.2;
+  ctx.strokeText(text, 0, 0);
+  ctx.shadowBlur = 0;
+  const gradient = ctx.createLinearGradient(0, -size / 2, 0, size / 2);
+  gradient.addColorStop(0, '#ffffff');
+  gradient.addColorStop(0.45, palette.light);
+  gradient.addColorStop(1, palette.mid);
+  ctx.fillStyle = gradient;
+  ctx.fillText(text, 0, 0);
+  ctx.restore();
 }
 
-/** Waits for the display font so canvas text never renders in a fallback face. */
-export async function loadArtFonts(): Promise<void> {
-  try {
-    await Promise.race([
-      document.fonts.load(`900 64px "${DISPLAY_FONT}"`),
-      new Promise((resolve) => setTimeout(resolve, 2500)),
-    ]);
-  } catch {
-    // Fall back to the serif stack.
+// ── Shared FX parts (white, tinted per skin in Spine) ─────────────────
+
+/** Four-point twinkle. */
+export function drawSparkle(ctx: CanvasRenderingContext2D, size: number): void {
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.shadowColor = '#ffffff';
+  ctx.shadowBlur = size * 0.8;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i += 1) {
+    const a = (i / 8) * Math.PI * 2;
+    const r = i % 2 === 0 ? size : size * 0.18;
+    ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/** Soft radial glow. */
+export function drawGlow(ctx: CanvasRenderingContext2D, radius: number): void {
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
+  g.addColorStop(0, 'rgba(255,255,255,0.9)');
+  g.addColorStop(0.4, 'rgba(255,255,255,0.45)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+}
+
+/** Vertical light band with feathered edges, swept across gems on win. */
+export function drawShine(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  const g = ctx.createLinearGradient(-width / 2, 0, width / 2, 0);
+  g.addColorStop(0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0.85)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(-width / 2, -height / 2, width, height);
+}
+
+/**
+ * Starburst behind Wild / Scatter. 12 rays → 30° symmetry, so a 30° rotation
+ * loops seamlessly.
+ */
+export const RAY_COUNT = 12;
+
+export function drawRays(ctx: CanvasRenderingContext2D, radius: number): void {
+  const g = ctx.createRadialGradient(0, 0, radius * 0.1, 0, 0, radius);
+  g.addColorStop(0, 'rgba(255,255,255,0.9)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  const half = (Math.PI / RAY_COUNT) * 0.45;
+  for (let i = 0; i < RAY_COUNT; i += 1) {
+    const a = (i / RAY_COUNT) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, radius, a - half, a + half);
+    ctx.closePath();
+    ctx.fill();
   }
 }

@@ -1,5 +1,5 @@
 import { Container, FillGradient } from 'pixi.js';
-import { DISPLAY_FONT } from './art/symbolArt';
+import { DISPLAY_FONT } from './art/fonts';
 import { GlowText } from './GlowText';
 
 /** Game title lockup above the reels. */

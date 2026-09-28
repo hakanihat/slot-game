@@ -1,7 +1,7 @@
 import type { SymbolId } from '@gem-rush/shared';
 import { BlurFilter, Container, Graphics, Ticker } from 'pixi.js';
 import { Ease, tween, type TweenHandle } from '../core/tween';
-import type { SymbolTextures } from './art/SymbolTextures';
+import type { SymbolAssets } from './spine/symbolAssets';
 import { SymbolView } from './SymbolView';
 
 type ReelPhase = 'idle' | 'spinning' | 'landing';
@@ -27,7 +27,7 @@ export class ReelView extends Container {
   private onLanded: (() => void) | null = null;
 
   constructor(
-    textures: SymbolTextures,
+    assets: SymbolAssets,
     private readonly cellSize: number,
     private readonly rows: number,
     private readonly randomSymbol: () => SymbolId,
@@ -45,7 +45,7 @@ export class ReelView extends Container {
     content.mask = mask;
     this.views = Array.from(
       { length: rows + 2 },
-      () => new SymbolView(textures, cellSize, randomSymbol()),
+      () => new SymbolView(assets, cellSize, randomSymbol()),
     );
     content.addChild(...this.views);
 

@@ -1,7 +1,7 @@
 import type { GameConfig } from '@gem-rush/shared';
 import { Container, type Application } from 'pixi.js';
 import { createCoinTexture, createGlowTexture } from './art/effectsArt';
-import type { SymbolTextures } from './art/SymbolTextures';
+import type { SymbolAssets } from './spine/symbolAssets';
 import { Background } from './Background';
 import { Logo } from './Logo';
 import { BannerOverlay } from './overlays/BannerOverlay';
@@ -35,14 +35,14 @@ export class GameScene extends Container {
 
   constructor(
     private readonly app: Application,
-    textures: SymbolTextures,
+    symbols: SymbolAssets,
     config: GameConfig,
     reducedMotion: boolean,
   ) {
     super();
     this.background = new Background(createGlowTexture(), reducedMotion ? 0 : 70);
 
-    this.reels = new ReelSetView(textures, config, CELL_SIZE);
+    this.reels = new ReelSetView(symbols, config, CELL_SIZE);
     const frame = new ReelFrame(
       this.reels.gridWidth,
       this.reels.gridHeight,

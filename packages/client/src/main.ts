@@ -1,13 +1,15 @@
 import type { SessionState, SymbolId } from '@gem-rush/shared';
-import { Application } from 'pixi.js';
+import { Application, Assets } from 'pixi.js';
 import { SoundManager } from './audio/SoundManager';
 import { GameController } from './controller/GameController';
 import type { GameState } from './controller/state';
 import { formatMoney } from './core/format';
 import { Store } from './core/Store';
-import { loadArtFonts } from './game/art/symbolArt';
+import { loadArtFonts } from './game/art/fonts';
 import { SymbolTextures } from './game/art/SymbolTextures';
 import { GameScene } from './game/GameScene';
+import { SpineSymbolPool } from './game/spine/SpineSymbolPool';
+import { SYMBOL_SPINE } from './game/spine/symbolAssets';
 import { Hud } from './hud/Hud';
 import { ApiClient, ApiError } from './net/ApiClient';
 import { withRetry } from './net/retry';
@@ -22,8 +24,6 @@ const ATTRACT_GRID: SymbolId[][] = [
   ['AMETHYST', 'K', 'WILD'],
   ['Q', 'A', 'RUBY'],
 ];
-
-const SYMBOL_TEXTURE_SIZE = 256;
 
 /** Resumes the stored guest session, or starts a fresh one if it's missing/expired. */
 async function openSession(api: ApiClient): Promise<SessionState> {
@@ -82,8 +82,11 @@ async function boot(): Promise<void> {
   });
   stage.append(app.canvas);
 
-  const textures = new SymbolTextures(SYMBOL_TEXTURE_SIZE);
-  const scene = new GameScene(app, textures, info, reducedMotion);
+  // Symbol rig: static sprites are baked from the Spine setup pose; the pool animates wins.
+  await Assets.load([SYMBOL_SPINE.skeleton, SYMBOL_SPINE.atlas]);
+  const pool = new SpineSymbolPool();
+  const textures = await SymbolTextures.bake(app.renderer, pool);
+  const scene = new GameScene(app, { textures, pool }, info, reducedMotion);
   app.stage.addChild(scene);
 
   const sound = new SoundManager();

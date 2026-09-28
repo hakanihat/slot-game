@@ -17,11 +17,12 @@
     "build": "npm run build -w @gem-rush/shared && npm run build -w @gem-rush/server && npm run build -w @gem-rush/client",
     "start": "npm run start -w @gem-rush/server",
     "test": "npm run build -w @gem-rush/shared && vitest run",
-    "typecheck": "npm run build -w @gem-rush/shared && tsc -p packages/server --noEmit && tsc -p packages/client --noEmit",
+    "typecheck": "npm run build -w @gem-rush/shared && tsc -p packages/server --noEmit && tsc -p packages/client --noEmit && tsc -p packages/client/tsconfig.tools.json",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "simulate": "npm run build -w @gem-rush/shared && npm run simulate -w @gem-rush/server"
+    "simulate": "npm run build -w @gem-rush/shared && npm run simulate -w @gem-rush/server",
+    "spine:build": "npm run spine:build -w @gem-rush/client"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

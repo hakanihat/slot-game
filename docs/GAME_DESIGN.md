@@ -4,18 +4,20 @@ These are the player-experience decisions behind the implementation and why each
 
 ## Game feel
 
-| Technique                  | Where                                 | Why                                                                                                                            |
-| -------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Wind-up before spin        | `ReelView.startSpin`                  | A small upward tug (anticipation principle) makes the reels feel physical rather than scripted.                                |
-| Motion blur while spinning | `ReelView` `BlurFilter`               | Sells speed and hides the recycled filler symbols. Removed when idle so there's no cost.                                       |
-| Staggered stops + bounce   | `ReelSetView.stopOn`, `ReelView.land` | Reveals the result left-to-right in reading order, which builds tension one reel at a time.                                    |
-| Scatter anticipation       | `ReelSetView.stopOn`                  | With 2 scatters landed, the remaining reels glow, spin longer and play a rising tone. This is the genre's peak-tension moment. |
-| Special symbol landing     | `SymbolView.land`                     | Elastic squash on scatters and wilds, plus a pitch-rising chime per scatter, so the important symbols read instantly.          |
-| Minimum spin time          | `SPEED.minSpinMs`                     | Keeps pacing consistent however fast the server answers.                                                                       |
-| Scaled rollups             | `rollupDurationMs`                    | Celebration length is proportional to the win. Small wins never hold the player up.                                            |
-| Tiered big wins            | `BigWinOverlay`                       | BIG → MEGA → EPIC escalates _during_ the count-up, stretching the payoff moment.                                               |
-| Idle win cycling           | `GameController.startLineCycle`       | After a win, each line is shown in turn with its payout, so players can see exactly what paid and why.                         |
-| Mode theming               | `Background.setTheme`, HUD panel      | Free Spins switch to a magenta palette with a persistent counter. The player always knows which mode they're in.               |
+| Technique                  | Where                                    | Why                                                                                                                                              |
+| -------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Wind-up before spin        | `ReelView.startSpin`                     | A small upward tug (anticipation principle) makes the reels feel physical rather than scripted.                                                  |
+| Motion blur while spinning | `ReelView` `BlurFilter`                  | Sells speed and hides the recycled filler symbols. Removed when idle so there's no cost.                                                         |
+| Staggered stops + bounce   | `ReelSetView.stopOn`, `ReelView.land`    | Reveals the result left-to-right in reading order, which builds tension one reel at a time.                                                      |
+| Scatter anticipation       | `ReelSetView.stopOn`                     | With 2 scatters landed, the remaining reels glow, spin longer and play a rising tone. This is the genre's peak-tension moment.                   |
+| Special symbol landing     | Spine `land` animation                   | Squash, glow flash and ray burst on scatters and wilds, plus a pitch-rising chime per scatter, so the important symbols read instantly.          |
+| Animated winning symbols   | Spine `win` animation                    | Pulse, halo, a light sweep clipped to the gem outline, and twinkles. Winners feel alive while losers dim.                                        |
+| Static-first symbols       | `SymbolTextures.bake`, `SpineSymbolPool` | Idle and spinning cells are cheap sprites baked from the rig. Spine runs only on the few cells that animate, which keeps mobile frame times low. |
+| Minimum spin time          | `SPEED.minSpinMs`                        | Keeps pacing consistent however fast the server answers.                                                                                         |
+| Scaled rollups             | `rollupDurationMs`                       | Celebration length is proportional to the win. Small wins never hold the player up.                                                              |
+| Tiered big wins            | `BigWinOverlay`                          | BIG → MEGA → EPIC escalates _during_ the count-up, stretching the payoff moment.                                                                 |
+| Idle win cycling           | `GameController.startLineCycle`          | After a win, each line is shown in turn with its payout, so players can see exactly what paid and why.                                           |
+| Mode theming               | `Background.setTheme`, HUD panel         | Free Spins switch to a magenta palette with a persistent counter. The player always knows which mode they're in.                                 |
 
 ## Player control
 

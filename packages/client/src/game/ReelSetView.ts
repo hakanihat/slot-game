@@ -2,7 +2,7 @@ import type { GameConfig, LineWin, Position, ScatterWin, SymbolId } from '@gem-r
 import { Container } from 'pixi.js';
 import type { SpeedProfile } from '../config/presentation';
 import { SkipSignal } from '../core/SkipSignal';
-import type { SymbolTextures } from './art/SymbolTextures';
+import type { SymbolAssets } from './spine/symbolAssets';
 import { ReelView } from './ReelView';
 import { WinLinesView } from './WinLinesView';
 
@@ -42,7 +42,7 @@ export class ReelSetView extends Container {
   private readonly skip = new SkipSignal();
 
   constructor(
-    textures: SymbolTextures,
+    assets: SymbolAssets,
     private readonly config: GameConfig,
     readonly cellSize: number,
   ) {
@@ -53,7 +53,7 @@ export class ReelSetView extends Container {
       FILLER_SYMBOLS[Math.floor(Math.random() * FILLER_SYMBOLS.length)] as SymbolId;
 
     this.reels = Array.from({ length: config.reels }, (_, reel) => {
-      const view = new ReelView(textures, cellSize, config.rows, randomSymbol);
+      const view = new ReelView(assets, cellSize, config.rows, randomSymbol);
       view.x = reel * cellSize;
       return view;
     });

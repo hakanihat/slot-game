@@ -1,17 +1,26 @@
 import type { SymbolId } from '@gem-rush/shared';
-import { Container, Graphics, Sprite, Ticker } from 'pixi.js';
-import { Ease, tween } from '../core/tween';
-import type { SymbolTextures } from './art/SymbolTextures';
+import type { Spine } from '@esotericsoftware/spine-pixi-v8';
+import { Container, Graphics, Sprite } from 'pixi.js';
+import {
+  SYMBOL_ANIMATIONS,
+  SYMBOL_UNIT_SIZE,
+  type SymbolAnimation,
+  type SymbolAssets,
+} from './spine/symbolAssets';
 
-/** One cell on a reel: the symbol sprite plus its win highlight. */
+/**
+ * One cell on a reel. Shows a static sprite by default and swaps in a pooled
+ * Spine instance only while the symbol animates (land / win).
+ */
 export class SymbolView extends Container {
   private readonly sprite: Sprite;
   private readonly highlight: Graphics;
+  private spine: Spine | null = null;
+  private playing: SymbolAnimation | null = null;
   private id: SymbolId;
-  private pulseTime = 0;
 
   constructor(
-    private readonly textures: SymbolTextures,
+    private readonly assets: SymbolAssets,
     private readonly cellSize: number,
     id: SymbolId,
   ) {
@@ -26,11 +35,11 @@ export class SymbolView extends Container {
         cellSize * 0.92,
         cellSize * 0.14,
       )
-      .fill({ color: 0xffffff, alpha: 0.08 })
-      .stroke({ color: 0xffd54a, width: 4, alpha: 0.95 });
+      .fill({ color: 0xffffff, alpha: 0.06 })
+      .stroke({ color: 0xffd54a, width: 4, alpha: 0.9 });
     this.highlight.visible = false;
 
-    this.sprite = new Sprite({ texture: textures.texture(id), anchor: 0.5 });
+    this.sprite = new Sprite({ texture: assets.textures.texture(id), anchor: 0.5 });
     this.sprite.width = this.sprite.height = cellSize * 0.9;
 
     this.addChild(this.highlight, this.sprite);
@@ -42,50 +51,71 @@ export class SymbolView extends Container {
 
   setSymbol(id: SymbolId): void {
     if (id === this.id) return;
+    this.releaseSpine();
     this.id = id;
-    this.sprite.texture = this.textures.texture(id);
+    this.sprite.texture = this.assets.textures.texture(id);
   }
 
   setDimmed(dimmed: boolean): void {
     this.sprite.alpha = dimmed ? 0.35 : 1;
   }
 
-  /** Looping pulse for winning symbols — reads clearly even at small sizes. */
+  /** Loops the rig's `win` animation until {@link stopWinAnimation}. */
   startWinAnimation(): void {
-    if (this.highlight.visible) return;
     this.highlight.visible = true;
-    this.pulseTime = 0;
-    Ticker.shared.add(this.pulse, this);
+    if (this.playing !== 'win') void this.play('win', true);
   }
 
   stopWinAnimation(): void {
-    Ticker.shared.remove(this.pulse, this);
     this.highlight.visible = false;
-    this.sprite.scale.set(this.baseScale);
+    this.releaseSpine();
     this.setDimmed(false);
   }
 
-  /** Short squash-and-stretch when a special symbol lands (scatter/wild). */
-  async land(): Promise<void> {
-    const s = this.baseScale;
-    this.sprite.scale.set(s * 1.25);
-    await tween(this.sprite.scale, { x: s, y: s }, { duration: 320, ease: Ease.elasticOut })
-      .finished;
+  /** One-shot landing flourish for special symbols; resolves when it finishes. */
+  land(): Promise<void> {
+    if (this.playing === 'win') return Promise.resolve();
+    return this.play('land', false);
   }
 
-  private get baseScale(): number {
-    return (this.cellSize * 0.9) / this.sprite.texture.width;
+  private play(animation: SymbolAnimation, loop: boolean): Promise<void> {
+    const spine = this.spine ?? this.attachSpine();
+    this.playing = animation;
+    const entry = spine.state.setAnimation(0, SYMBOL_ANIMATIONS[animation], loop);
+    spine.update(0);
+    if (loop) return Promise.resolve();
+
+    return new Promise((resolve) => {
+      entry.listener = {
+        complete: () => {
+          if (this.spine === spine && this.playing === animation) this.releaseSpine();
+          resolve();
+        },
+        // Replaced by another animation or the spine was recycled.
+        end: () => resolve(),
+      };
+    });
   }
 
-  private pulse(ticker: Ticker): void {
-    this.pulseTime += ticker.deltaMS / 1000;
-    const s = this.baseScale * (1 + 0.07 * Math.sin(this.pulseTime * Math.PI * 2 * 1.4));
-    this.sprite.scale.set(s);
-    this.highlight.alpha = 0.6 + 0.4 * Math.sin(this.pulseTime * Math.PI * 2 * 1.4);
+  private attachSpine(): Spine {
+    const spine = this.assets.pool.acquire(this.id);
+    spine.scale.set((this.cellSize * 0.9) / SYMBOL_UNIT_SIZE);
+    this.addChild(spine);
+    this.sprite.visible = false;
+    this.spine = spine;
+    return spine;
+  }
+
+  private releaseSpine(): void {
+    if (!this.spine) return;
+    this.assets.pool.release(this.spine);
+    this.spine = null;
+    this.playing = null;
+    this.sprite.visible = true;
   }
 
   override destroy(): void {
-    Ticker.shared.remove(this.pulse, this);
+    this.releaseSpine();
     super.destroy({ children: true });
   }
 }

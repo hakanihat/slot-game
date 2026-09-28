@@ -12,13 +12,13 @@ an **authoritative game server** with certified-style RNG and verified math, a *
 
 ## Highlights
 
-| Area            | What's in it                                                                                                                                                                                  |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Game math**   | 96.11% RTP, verified two ways: closed-form calculation (exact) and a Monte Carlo simulator running the production engine. Hit rate 44%, feature 1 in 191, medium volatility (σ≈4.9).          |
-| **Server**      | Fastify + Zod. Server-side outcomes via `crypto.randomInt` (no modulo bias). Integer money, a wallet port with ledger, per-session round locking, session resume, idle expiry.                |
-| **Game client** | PixiJS v8. Procedural symbol art, reel physics (wind-up, motion blur, bounce), anticipation, slam-stop, paylines, BIG/MEGA/EPIC wins, Free Spins with retriggers, synthesized audio.          |
-| **HUD**         | Framework-free DOM layer: balance/bet/win meters, autoplay with a mandatory loss limit, turbo, paytable in real currency, history, keyboard play, responsive layouts, reduced-motion support. |
-| **Quality**     | 40+ unit and integration tests, strict TS, ESLint, Prettier, GitHub Actions CI, multi-stage Docker build, QA cheat tool for forced outcomes.                                                  |
+| Area            | What's in it                                                                                                                                                                                                          |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Game math**   | 96.11% RTP, verified two ways: closed-form calculation (exact) and a Monte Carlo simulator running the production engine. Hit rate 44%, feature 1 in 191, medium volatility (σ≈4.9).                                  |
+| **Server**      | Fastify + Zod. Server-side outcomes via `crypto.randomInt` (no modulo bias). Integer money, a wallet port with ledger, per-session round locking, session resume, idle expiry.                                        |
+| **Game client** | PixiJS v8. **Spine 4.3 animated symbols** (land/win, clipped light sweep, pooled). Reel physics (wind-up, motion blur, bounce), anticipation, slam-stop, paylines, BIG/MEGA/EPIC wins, Free Spins, synthesized audio. |
+| **HUD**         | Framework-free DOM layer: balance/bet/win meters, autoplay with a mandatory loss limit, turbo, paytable in real currency, history, keyboard play, responsive layouts, reduced-motion support.                         |
+| **Quality**     | 40+ unit and integration tests, strict TS, ESLint, Prettier, GitHub Actions CI, multi-stage Docker build, QA cheat tool for forced outcomes.                                                                          |
 
 ## Quick start
 
@@ -60,13 +60,14 @@ ENABLE_CHEATS=true npm run dev -w @gem-rush/server   # server refuses this with 
 
 ### Scripts
 
-| Command                       | Purpose                                                   |
-| ----------------------------- | --------------------------------------------------------- |
-| `npm run dev`                 | Server (watch) + client (HMR)                             |
-| `npm test`                    | Vitest: math, evaluator, services, HTTP API, client logic |
-| `npm run simulate -- 5000000` | Monte Carlo RTP report vs. the exact theoretical value    |
-| `npm run lint` / `typecheck`  | ESLint and TypeScript across all packages                 |
-| `npm run build` / `npm start` | Production build and server                               |
+| Command                       | Purpose                                                     |
+| ----------------------------- | ----------------------------------------------------------- |
+| `npm run dev`                 | Server (watch) + client (HMR)                               |
+| `npm test`                    | Vitest: math, evaluator, services, HTTP API, client logic   |
+| `npm run simulate -- 5000000` | Monte Carlo RTP report vs. the exact theoretical value      |
+| `npm run spine:build`         | Regenerates the Spine symbol rig (skeleton, atlas, texture) |
+| `npm run lint` / `typecheck`  | ESLint and TypeScript across all packages                   |
+| `npm run build` / `npm start` | Production build and server                                 |
 
 ## Architecture
 
@@ -104,7 +105,10 @@ packages/
 │   ├── scripts/simulate.ts  Monte Carlo simulator
 │   └── test/             Vitest suites
 └── client/
-    ├── src/game/         Pixi scene: reels, symbols, frame, background, overlays, art
+    ├── src/game/         Pixi scene: reels, symbols, frame, background, overlays
+    ├── src/game/spine/   Spine symbol pool + asset contract
+    ├── tools/spine/      Spine rig generator (art → atlas → skeleton JSON)
+    ├── public/spine/     Generated Spine assets (symbols.json / .atlas / .png)
     ├── src/hud/          DOM HUD + modals (paytable, autoplay, history)
     ├── src/controller/   GameController (round flow) + state types
     ├── src/audio/        Procedural Web Audio SFX
@@ -122,8 +126,13 @@ packages/
   operator's remote wallet touches only `container.ts`.
 - **Integer money.** All amounts are cents. Every bet level is a multiple of 20 lines, so line bets are whole numbers.
 - **Unidirectional UI.** The HUD renders from a store and emits intents. Only the controller mutates state.
-- **Zero binary assets.** Symbols, effects and sounds are generated in code. The repo stays light and everything is
-  resolution-independent.
+- **Spine symbols with a real asset pipeline.** `tools/spine` generates a Spine 4.3 rig (one skeleton, a skin per
+  symbol, `idle`/`land`/`win` animations) as the same `.json` + `.atlas` + `.png` files the Spine Editor exports, so an
+  animator can drop in replacements. Reels draw static sprites **baked from the rig's setup pose**, and only symbols
+  that are landing or winning borrow a pooled Spine instance. See
+  [tools/spine/README.md](packages/client/tools/spine/README.md).
+- **Generated art and audio.** Symbol art, effects and sounds are produced in code, so every asset is reproducible
+  and can be tweaked without design tools.
 
 ## API
 
@@ -148,3 +157,6 @@ Errors always look like `{ "error": { "code": "INSUFFICIENT_FUNDS", "message": "
 ---
 
 _Demo game using play money only. No real-money gambling._
+
+_The Spine runtimes are used under the [Spine Runtimes License](http://esotericsoftware.com/spine-runtimes-license),
+which requires a Spine Editor license for products that integrate them. Cinzel font: SIL Open Font License 1.1._

@@ -1,5 +1,5 @@
 import { FillGradient, type TextStyleOptions } from 'pixi.js';
-import { DISPLAY_FONT } from '../art/symbolArt';
+import { DISPLAY_FONT } from '../art/fonts';
 
 const goldFill = () =>
   new FillGradient({
