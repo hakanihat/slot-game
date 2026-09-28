@@ -18,7 +18,7 @@ an **authoritative game server** with certified-style RNG and verified math, a *
 | **Server**      | Fastify + Zod. Server-side outcomes via `crypto.randomInt` (no modulo bias). Integer money, a wallet port with ledger, per-session round locking, session resume, idle expiry.                |
 | **Game client** | PixiJS v8. Procedural symbol art, reel physics (wind-up, motion blur, bounce), anticipation, slam-stop, paylines, BIG/MEGA/EPIC wins, Free Spins with retriggers, synthesized audio.          |
 | **HUD**         | Framework-free DOM layer: balance/bet/win meters, autoplay with a mandatory loss limit, turbo, paytable in real currency, history, keyboard play, responsive layouts, reduced-motion support. |
-| **Quality**     | 40+ unit and integration tests, strict TS, ESLint, Prettier, GitHub Actions CI, multi-stage Docker build, QA cheat tool for forced outcomes.                                                       |
+| **Quality**     | 40+ unit and integration tests, strict TS, ESLint, Prettier, GitHub Actions CI, multi-stage Docker build, QA cheat tool for forced outcomes.                                                  |
 
 ## Quick start
 
