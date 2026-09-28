@@ -102,6 +102,7 @@ async function boot(): Promise<void> {
       : readBetIndex(info.betLevels.length, info.defaultBetIndex),
     win: session.lastRound?.totalWin ?? 0,
     freeSpins: session.freeSpins,
+    bonus: session.bonus,
     autoplay: null,
     turbo: false,
     muted: sound.muted,
@@ -119,7 +120,7 @@ async function boot(): Promise<void> {
     symbolImage: (id) => textures.dataUrl(id),
     loadHistory: async () => (await api.history()).rounds,
     onLayoutChange: () => scene.layout(hud.insets),
-    debug: new URLSearchParams(window.location.search).has('debug'),
+    debug: info.cheatsEnabled,
   });
   controller.attachHud(hud);
 

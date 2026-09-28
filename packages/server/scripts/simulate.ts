@@ -7,6 +7,7 @@
  *   npm run simulate -- [rounds=2000000] [seed=42]
  */
 import { GAME_CONFIG } from '@gem-rush/shared';
+import { bonusMultiplierOf, drawBonusSequence } from '../src/domain/bonus/bonusSequence.js';
 import { GEM_RUSH_MODEL } from '../src/domain/math/reelSets.js';
 import { SlotEngine } from '../src/domain/math/SlotEngine.js';
 import { computeTheoreticalRtp } from '../src/domain/math/theoreticalRtp.js';
@@ -17,6 +18,7 @@ const seed = Number(process.argv[3] ?? 42);
 const bet = GAME_CONFIG.betLevels[0];
 
 const engine = new SlotEngine(GEM_RUSH_MODEL, new SeededRng(seed));
+const bonusRng = new SeededRng(seed + 1);
 const WIN_BUCKETS = [0, 1, 2, 5, 10, 25, 50, 100, 250, 500, Infinity];
 const bucketCounts = new Array<number>(WIN_BUCKETS.length - 1).fill(0);
 
@@ -24,6 +26,8 @@ let totalBet = 0;
 let totalWin = 0;
 let baseWin = 0;
 let featureWin = 0;
+let bonusWin = 0;
+let bonuses = 0;
 let hits = 0;
 let features = 0;
 let featureSpins = 0;
@@ -36,6 +40,14 @@ for (let i = 0; i < rounds; i += 1) {
   const base = engine.spin('base', bet);
   let roundWin = base.totalWin;
   baseWin += base.totalWin;
+
+  if (base.bonusTrigger) {
+    bonuses += 1;
+    const win =
+      bonusMultiplierOf(drawBonusSequence(GEM_RUSH_MODEL.config.bonusGame, bonusRng)) * bet;
+    roundWin += win;
+    bonusWin += win;
+  }
 
   let remaining = base.freeSpinsAwarded;
   if (remaining > 0) features += 1;
@@ -73,6 +85,11 @@ console.table({
   'Total RTP': { simulated: pct(rtp), theoretical: pct(theory.totalRtp) },
   'Base game RTP': { simulated: pct(baseWin / totalBet), theoretical: pct(theory.baseRtp) },
   'Free Spins RTP': { simulated: pct(featureWin / totalBet), theoretical: pct(theory.featureRtp) },
+  'Gem Vault bonus RTP': { simulated: pct(bonusWin / totalBet), theoretical: pct(theory.bonusRtp) },
+  'Bonus frequency (1 in)': {
+    simulated: (rounds / Math.max(bonuses, 1)).toFixed(1),
+    theoretical: theory.bonusFrequency.toFixed(1),
+  },
   'Feature frequency (1 in)': {
     simulated: (rounds / Math.max(features, 1)).toFixed(1),
     theoretical: theory.featureFrequency.toFixed(1),

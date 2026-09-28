@@ -28,6 +28,7 @@ export const PALETTES = {
   AMETHYST: { light: '#ecd0ff', mid: '#9b3ce0', dark: '#360a60', glow: '#b85cff' },
   SCATTER: { light: '#ffe0f6', mid: '#ff3fb4', dark: '#6a0046', glow: '#ff5ccf' },
   WILD: { light: '#fff6c2', mid: '#ffbf1f', dark: '#7a4200', glow: '#ffd24a' },
+  BONUS: { light: '#e9ccff', mid: '#8f3fe0', dark: '#240846', glow: '#c68cff' },
 } as const satisfies Record<string, Palette>;
 
 export type RoyalId = 'J' | 'Q' | 'K' | 'A';
@@ -59,7 +60,7 @@ const star = (points: number, outer: number, inner: number): Point[] =>
  * shape alone identifies it; the same outlines become the Spine clipping
  * polygons that keep the shine sweep inside the gem.
  */
-export const OUTLINES: Readonly<Record<GemId | 'WILD' | 'SCATTER', Point[]>> = {
+export const OUTLINES: Readonly<Record<GemId | 'WILD' | 'SCATTER' | 'BONUS', Point[]>> = {
   RUBY: polygon(8, 0.92, 0.92, -Math.PI / 2 + Math.PI / 8),
   SAPPHIRE: polygon(6, 0.88, 0.98),
   EMERALD: [
@@ -83,6 +84,18 @@ export const OUTLINES: Readonly<Record<GemId | 'WILD' | 'SCATTER', Point[]>> = {
   ],
   WILD: polygon(8, 1, 1, -Math.PI / 2),
   SCATTER: star(5, 1.05, 0.5),
+  /** Vault silhouette: box with an arched lid. */
+  BONUS: [
+    [-0.88, 0.82],
+    [-0.88, -0.42],
+    [-0.62, -0.7],
+    [-0.32, -0.84],
+    [0, -0.88],
+    [0.32, -0.84],
+    [0.62, -0.7],
+    [0.88, -0.42],
+    [0.88, 0.82],
+  ],
 };
 
 /** Inner "table" size per outline — smaller tables read as deeper cuts. */
@@ -93,6 +106,7 @@ export const TABLE_SCALE: Readonly<Record<keyof typeof OUTLINES, number>> = {
   AMETHYST: 0.52,
   WILD: 0.6,
   SCATTER: 0.45,
+  BONUS: 0.5,
 };
 
 /** Light comes from the top-left, like most slot art, so facets read consistently. */
@@ -177,6 +191,90 @@ export function drawFacetedGem(
   ctx.strokeStyle = mix(palette.light, palette.mid, 0.3);
   ctx.lineWidth = radius * 0.035;
   ctx.stroke();
+}
+
+/** Gem Vault chest: purple box, gold bands, arched lid and a jewelled lock. */
+export function drawVault(ctx: CanvasRenderingContext2D, radius: number): void {
+  const p = PALETTES.BONUS;
+  const gold = { light: '#fff3b0', mid: '#e6a100', dark: '#6b3c00' };
+  const r = radius;
+  const lid = () => {
+    ctx.beginPath();
+    ctx.moveTo(-0.88 * r, -0.08 * r);
+    ctx.lineTo(-0.88 * r, -0.42 * r);
+    ctx.quadraticCurveTo(0, -1.05 * r, 0.88 * r, -0.42 * r);
+    ctx.lineTo(0.88 * r, -0.08 * r);
+    ctx.closePath();
+  };
+  const box = () => {
+    ctx.beginPath();
+    ctx.roundRect(-0.88 * r, -0.08 * r, 1.76 * r, 0.9 * r, 0.08 * r);
+  };
+  const vertical = (from: string, mid: string, to: string, top: number, bottom: number) => {
+    const g = ctx.createLinearGradient(0, top * r, 0, bottom * r);
+    g.addColorStop(0, from);
+    g.addColorStop(0.5, mid);
+    g.addColorStop(1, to);
+    return g;
+  };
+
+  // Glow silhouette.
+  ctx.save();
+  ctx.shadowColor = p.glow;
+  ctx.shadowBlur = r * 0.3;
+  ctx.fillStyle = p.dark;
+  box();
+  ctx.fill();
+  lid();
+  ctx.fill();
+  ctx.restore();
+
+  box();
+  ctx.fillStyle = vertical(p.mid, p.dark, '#12031f', -0.08, 0.82);
+  ctx.fill();
+  lid();
+  ctx.fillStyle = vertical(p.light, p.mid, p.dark, -0.9, -0.08);
+  ctx.fill();
+
+  // Gold straps and rim, clipped to the chest.
+  ctx.save();
+  box();
+  lid();
+  ctx.clip();
+  ctx.fillStyle = vertical(gold.light, gold.mid, gold.dark, -0.9, 0.82);
+  for (const x of [-0.62, 0.48]) ctx.fillRect(x * r, -1 * r, 0.14 * r, 2 * r);
+  ctx.fillStyle = vertical(gold.light, gold.mid, gold.dark, -0.16, 0.02);
+  ctx.fillRect(-r, -0.16 * r, 2 * r, 0.16 * r);
+  ctx.restore();
+
+  // Outline.
+  ctx.lineWidth = r * 0.05;
+  ctx.strokeStyle = gold.mid;
+  box();
+  ctx.stroke();
+  lid();
+  ctx.stroke();
+
+  // Lock plate with a jewel.
+  ctx.beginPath();
+  ctx.roundRect(-0.24 * r, -0.26 * r, 0.48 * r, 0.52 * r, 0.1 * r);
+  ctx.fillStyle = vertical(gold.light, gold.mid, gold.dark, -0.26, 0.26);
+  ctx.fill();
+  ctx.lineWidth = r * 0.03;
+  ctx.strokeStyle = gold.dark;
+  ctx.stroke();
+  ctx.save();
+  ctx.shadowColor = '#ff5ccf';
+  ctx.shadowBlur = r * 0.25;
+  const jewel = ctx.createRadialGradient(-0.04 * r, -0.06 * r, 0, 0, 0, 0.14 * r);
+  jewel.addColorStop(0, '#ffe0f6');
+  jewel.addColorStop(0.45, '#ff3fb4');
+  jewel.addColorStop(1, '#6a0046');
+  ctx.fillStyle = jewel;
+  ctx.beginPath();
+  ctx.arc(0, -0.02 * r, 0.13 * r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 }
 
 /** Letter royals (J, Q, K, A) with a gradient fill and coloured glow. */

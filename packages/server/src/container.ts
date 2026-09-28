@@ -1,3 +1,5 @@
+import { BonusService } from './application/BonusService.js';
+import { KeyedMutex } from './application/KeyedMutex.js';
 import { SessionService } from './application/SessionService.js';
 import { SpinService } from './application/SpinService.js';
 import type { Clock } from './application/ports.js';
@@ -22,9 +24,11 @@ export interface ContainerOptions {
 export interface Container {
   readonly sessions: SessionService;
   readonly spins: SpinService;
+  readonly bonus: BonusService;
   readonly wallet: InMemoryWallet;
   /** Theoretical RTP of the live math model, published to clients. */
   readonly rtp: number;
+  readonly cheatsEnabled: boolean;
 }
 
 /**
@@ -36,7 +40,10 @@ export function createContainer(options: ContainerOptions): Container {
   const clock = options.clock ?? Date.now;
   const repository = new InMemorySessionRepository();
   const wallet = new InMemoryWallet();
-  const engine = new SlotEngine(GEM_RUSH_MODEL, options.rng ?? new CryptoRng());
+  const rng = options.rng ?? new CryptoRng();
+  const engine = new SlotEngine(GEM_RUSH_MODEL, rng);
+  // One lock per session across spins and bonus picks.
+  const mutex = new KeyedMutex();
 
   const sessions = new SessionService(repository, wallet, clock, {
     startingBalance: options.startingBalance,
@@ -48,10 +55,13 @@ export function createContainer(options: ContainerOptions): Container {
     wallet,
     clock,
     GEM_RUSH_MODEL,
+    mutex,
+    rng,
     options.cheatsEnabled,
   );
+  const bonus = new BonusService(repository, wallet, clock, mutex);
 
   const rtp = computeTheoreticalRtp(GEM_RUSH_MODEL).totalRtp;
 
-  return { sessions, spins, wallet, rtp };
+  return { sessions, spins, bonus, wallet, rtp, cheatsEnabled: options.cheatsEnabled ?? false };
 }

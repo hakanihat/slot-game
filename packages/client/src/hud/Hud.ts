@@ -21,7 +21,7 @@ export interface HudDependencies {
   readonly loadHistory: () => Promise<readonly HistoryEntry[]>;
   /** Called whenever the HUD's footprint changes so the canvas can re-fit the reels. */
   readonly onLayoutChange: () => void;
-  /** Shows the QA cheat panel. */
+  /** Shows the QA cheat panel (the server has cheats enabled). */
   readonly debug?: boolean;
 }
 
@@ -204,22 +204,34 @@ export class Hud {
       },
     );
 
-    store.select(
-      (s) => s.freeSpins,
-      (fs) => {
-        this.featurePanel.classList.toggle('feature-panel--idle', fs === null);
-        this.featurePanel.setAttribute('aria-hidden', String(fs === null));
-        document.body.classList.toggle('is-feature', fs !== null);
-        if (fs) {
-          this.featurePanel.replaceChildren(
-            el('span', { class: 'feature-panel__title', text: 'FREE SPINS' }),
-            el('span', { text: `${fs.remaining} left of ${fs.total}` }),
-            el('span', { class: 'feature-panel__mult', text: `×${fs.multiplier}` }),
-            el('span', { text: `Feature win ${format(fs.totalWin)}` }),
-          );
-        }
-      },
-    );
+    // The feature panel reflects whichever feature is live (bonus takes precedence).
+    let shownFreeSpins: GameState['freeSpins'] = null;
+    let shownBonus: GameState['bonus'] = null;
+    const renderFeaturePanel = ({ freeSpins: fs, bonus }: GameState) => {
+      if (fs === shownFreeSpins && bonus === shownBonus) return;
+      shownFreeSpins = fs;
+      shownBonus = bonus;
+      const active = fs !== null || bonus !== null;
+      this.featurePanel.classList.toggle('feature-panel--idle', !active);
+      this.featurePanel.setAttribute('aria-hidden', String(!active));
+      document.body.classList.toggle('is-feature', active);
+      if (bonus) {
+        this.featurePanel.replaceChildren(
+          el('span', { class: 'feature-panel__title', text: 'GEM VAULT' }),
+          el('span', { text: `${bonus.picks.length} of ${bonus.tiles} vaults opened` }),
+          el('span', { text: `Bonus win ${format(bonus.totalWin)}` }),
+        );
+      } else if (fs) {
+        this.featurePanel.replaceChildren(
+          el('span', { class: 'feature-panel__title', text: 'FREE SPINS' }),
+          el('span', { text: `${fs.remaining} left of ${fs.total}` }),
+          el('span', { class: 'feature-panel__mult', text: `×${fs.multiplier}` }),
+          el('span', { text: `Feature win ${format(fs.totalWin)}` }),
+        );
+      }
+    };
+    store.subscribe(renderFeaturePanel);
+    renderFeaturePanel(store.get());
 
     // Button availability is derived from several fields, so recompute on any change.
     store.subscribe((state) => this.renderControls(state));
@@ -234,7 +246,8 @@ export class Hud {
   private renderControls(state: GameState): void {
     const { info } = this.deps;
     const idle = state.phase === 'idle';
-    const locked = !idle || state.autoplay !== null || state.freeSpins !== null;
+    const locked =
+      !idle || state.autoplay !== null || state.freeSpins !== null || state.bonus !== null;
 
     this.betDown.disabled = locked || state.betIndex <= 0;
     this.betUp.disabled = locked || state.betIndex >= info.betLevels.length - 1;
@@ -248,6 +261,9 @@ export class Hud {
     if (state.autoplay) {
       mode = 'auto';
       label = `STOP\n${state.autoplay.remaining}`;
+    } else if (state.phase === 'bonus') {
+      mode = 'bonus';
+      label = 'PICK';
     } else if (state.freeSpins) {
       mode = 'free';
       label = 'FREE';
@@ -262,7 +278,12 @@ export class Hud {
     this.spinButton.disabled = state.phase === 'loading';
     this.spinButton.setAttribute(
       'aria-label',
-      mode === 'auto' ? 'Stop autoplay' : mode === 'stop' ? 'Stop reels' : 'Spin',
+      (
+        { auto: 'Stop autoplay', stop: 'Stop reels', bonus: 'Open a vault for me' } as Record<
+          string,
+          string
+        >
+      )[mode] ?? 'Spin',
     );
     this.spinLabel.textContent = label;
   }

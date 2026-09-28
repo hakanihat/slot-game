@@ -14,23 +14,23 @@ below (also enforced by `src/game/spine/symbolRig.test.ts`).
 
 ## Contract with the game
 
-| Item       | Requirement                                                                   |
-| ---------- | ----------------------------------------------------------------------------- |
-| Files      | `public/spine/symbols.json` (or `.skel`) + `symbols.atlas` + page image(s)    |
-| Skins      | One per symbol id: `J Q K A AMETHYST EMERALD SAPPHIRE RUBY WILD SCATTER`      |
-| Animations | `idle` (setup pose, baked to static sprites), `land` (one-shot), `win` (loop) |
-| Space      | Symbol centred on the origin inside a 256 × 256 unit square                   |
+| Item       | Requirement                                                                    |
+| ---------- | ------------------------------------------------------------------------------ |
+| Files      | `public/spine/symbols.json` (or `.skel`) + `symbols.atlas` + page image(s)     |
+| Skins      | One per symbol id: `J Q K A AMETHYST EMERALD SAPPHIRE RUBY WILD SCATTER BONUS` |
+| Animations | `idle` (setup pose, baked to static sprites), `land` (one-shot), `win` (loop)  |
+| Space      | Symbol centred on the origin inside a 256 × 256 unit square                    |
 
 ## How the generated rig is built
 
 ```
 root
 └─ symbol            ← scale pulse / land squash
-   ├─ rays           ← Wild & Scatter starburst (12-fold, loops by rotating 30°)
+   ├─ rays           ← Wild / Scatter / Bonus starburst (12-fold, loops by rotating 30°)
    ├─ glow           ← additive halo, tinted per skin
    ├─ body           ← the symbol art  +  clip (gem outline clipping mask)
    ├─ shine          ← additive light band, swept across the gem, clipped
-   ├─ label          ← WILD / BONUS banner, bounces on win
+   ├─ label          ← WILD / SCATTER / BONUS banner, bounces on win
    ├─ sparkle1       ← always-on twinkle (gems), spins on win
    └─ sparkle2       ← extra twinkle, win only
 ```

@@ -11,9 +11,12 @@ import {
 import { stopsForScenario } from '../domain/math/cheats.js';
 import type { EngineResult, SlotEngine } from '../domain/math/SlotEngine.js';
 import type { MathModel } from '../domain/math/types.js';
+import { toBonusState } from '../domain/bonus/ActiveBonus.js';
+import { drawBonusSequence } from '../domain/bonus/bonusSequence.js';
+import type { Rng } from '../domain/rng/Rng.js';
 import type { Session } from '../domain/session/Session.js';
 import { AppError } from './errors.js';
-import { KeyedMutex } from './KeyedMutex.js';
+import type { KeyedMutex } from './KeyedMutex.js';
 import type { Clock, SessionRepository, Wallet } from './ports.js';
 
 export const HISTORY_LIMIT = 50;
@@ -24,14 +27,16 @@ export const HISTORY_LIMIT = 50;
  * If outcome generation fails after the debit, the stake is refunded.
  */
 export class SpinService {
-  private readonly mutex = new KeyedMutex();
-
   constructor(
     private readonly engine: SlotEngine,
     private readonly repository: SessionRepository,
     private readonly wallet: Wallet,
     private readonly clock: Clock,
     private readonly model: MathModel,
+    /** Shared with BonusService: one action per session at a time. */
+    private readonly mutex: KeyedMutex,
+    /** Draws the hidden Gem Vault prize order. */
+    private readonly rng: Rng,
     private readonly cheatsEnabled = false,
   ) {}
 
@@ -51,6 +56,9 @@ export class SpinService {
     requestedBet: number,
     cheat?: CheatScenario,
   ): Promise<SpinResponse> {
+    if (session.bonus) {
+      throw new AppError('BONUS_IN_PROGRESS', 'Finish the Gem Vault bonus before spinning again');
+    }
     const roundId = randomUUID();
     const inFeature = session.freeSpins !== null && session.freeSpins.remaining > 0;
     // During Free Spins the stake is locked to the triggering bet and not charged.
@@ -87,6 +95,15 @@ export class SpinService {
             totalWin: previousFeature.totalWin + result.totalWin,
           }
         : null;
+    if (result.bonusTrigger) {
+      session.bonus = {
+        roundId,
+        bet,
+        sequence: drawBonusSequence(this.model.config.bonusGame, this.rng),
+        picks: [],
+        totalWin: 0,
+      };
+    }
     session.lastRound = outcome;
     session.history = [
       {
@@ -101,7 +118,13 @@ export class SpinService {
     ].slice(0, HISTORY_LIMIT);
     await this.repository.save(session);
 
-    return { outcome, balance: balanceAfter, freeSpins: session.freeSpins, featureEnded };
+    return {
+      outcome,
+      balance: balanceAfter,
+      freeSpins: session.freeSpins,
+      bonus: session.bonus ? toBonusState(session.bonus) : null,
+      featureEnded,
+    };
   }
 }
 

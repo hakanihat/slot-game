@@ -25,7 +25,7 @@ export class WinLinesView extends Container {
   private drawLine(index: number): void {
     const rows = this.paylines[index];
     if (!rows) return;
-    const color = PAYLINE_COLORS[index % PAYLINE_COLORS.length] ?? 0xffffff;
+    const color = lineColor(index);
     const half = this.cellSize / 2;
     const points = rows.map((row, reel) => ({
       x: reel * this.cellSize + half,
@@ -50,3 +50,6 @@ export class WinLinesView extends Container {
     this.graphics.stroke({ color: 0xffffff, width: 2, alpha: 0.7, join: 'round', cap: 'round' });
   }
 }
+
+export const lineColor = (lineIndex: number): number =>
+  PAYLINE_COLORS[lineIndex % PAYLINE_COLORS.length] ?? 0xffffff;

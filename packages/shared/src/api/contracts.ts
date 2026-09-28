@@ -10,6 +10,8 @@ import type { SymbolId } from '../game/symbols.js';
 export type GameInfo = GameConfig & {
   /** Theoretical return to player (0-1), computed from the live reel strips. */
   readonly rtp: number;
+  /** True only on QA servers that honour forced outcomes; the client then shows its QA panel. */
+  readonly cheatsEnabled: boolean;
 };
 
 /** A grid position: `reel` is the column (0-4), `row` the visible row (0-2, top to bottom). */
@@ -62,6 +64,45 @@ export interface SpinOutcome {
   readonly totalWin: number;
   /** Free spins awarded by *this* spin (trigger or retrigger), 0 otherwise. */
   readonly freeSpinsAwarded: number;
+  /** BONUS symbols that triggered the Gem Vault bonus on this spin, or `null`. */
+  readonly bonusTrigger: { readonly positions: readonly Position[] } | null;
+}
+
+/** What a picked vault tile revealed. Prize amounts already include the bet. */
+export type BonusPrize =
+  | { readonly kind: 'prize'; readonly multiplier: number; readonly amount: number }
+  | { readonly kind: 'collect' };
+
+export interface BonusPick {
+  readonly tile: number;
+  readonly prize: BonusPrize;
+}
+
+/**
+ * Public view of a Gem Vault bonus in progress. The hidden prize order lives
+ * only on the server; clients see what has been revealed so far.
+ */
+export interface BonusState {
+  readonly bet: number;
+  readonly tiles: number;
+  readonly picks: readonly BonusPick[];
+  readonly totalWin: number;
+}
+
+export interface BonusPickRequest {
+  readonly tile: number;
+}
+
+export interface BonusPickResponse {
+  readonly pick: BonusPick;
+  readonly balance: number;
+  /** State after this pick; `null` once a COLLECT ended the bonus. */
+  readonly bonus: BonusState | null;
+  /** Present on the final pick: total win and what the unpicked tiles held. */
+  readonly finished: {
+    readonly totalWin: number;
+    readonly unrevealed: readonly BonusPick[];
+  } | null;
 }
 
 export interface SessionState {
@@ -69,6 +110,8 @@ export interface SessionState {
   readonly currency: string;
   /** Present while a Free Spins feature is in progress, so the client can resume it after a reload. */
   readonly freeSpins: FreeSpinsState | null;
+  /** Present while a Gem Vault bonus awaits picks — resumed after a reload. */
+  readonly bonus: BonusState | null;
   readonly lastRound: SpinOutcome | null;
 }
 
@@ -81,7 +124,7 @@ export interface CreateSessionResponse {
  * Forced outcomes for development and QA ("cheat tool"). Only honoured when
  * the server runs with `ENABLE_CHEATS=true` — never in production.
  */
-export const CHEAT_SCENARIOS = ['freeSpins', 'bigWin', 'anticipation'] as const;
+export const CHEAT_SCENARIOS = ['freeSpins', 'bonus', 'bigWin', 'anticipation'] as const;
 export type CheatScenario = (typeof CHEAT_SCENARIOS)[number];
 
 export interface SpinRequest {
@@ -101,13 +144,15 @@ export interface SpinResponse {
   readonly balance: number;
   /** Feature state *after* this spin; `null` when no feature is in progress. */
   readonly freeSpins: FreeSpinsState | null;
+  /** Bonus triggered by this spin, to be played before spinning again. */
+  readonly bonus: BonusState | null;
   readonly featureEnded: FeatureSummary | null;
 }
 
 export interface HistoryEntry {
   readonly roundId: string;
   readonly timestamp: string;
-  readonly mode: SpinMode;
+  readonly mode: SpinMode | 'bonus';
   readonly bet: number;
   readonly win: number;
   readonly balanceAfter: number;
@@ -124,6 +169,9 @@ export type ApiErrorCode =
   | 'INVALID_BET'
   | 'REFILL_NOT_ALLOWED'
   | 'NOT_FOUND'
+  | 'BONUS_IN_PROGRESS'
+  | 'NO_BONUS'
+  | 'INVALID_PICK'
   | 'FORBIDDEN'
   | 'INTERNAL';
 

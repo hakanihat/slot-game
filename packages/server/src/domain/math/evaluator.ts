@@ -69,6 +69,23 @@ export interface ScatterEvaluationInput {
   readonly multiplier: number;
 }
 
+/**
+ * The Gem Vault bonus triggers when every trigger reel shows a BONUS symbol
+ * (anywhere in its window). Returns the triggering positions, or `null`.
+ */
+export function evaluateBonusTrigger(
+  grid: Grid,
+  triggerReels: readonly number[],
+): { positions: Position[] } | null {
+  const positions: Position[] = [];
+  for (const reel of triggerReels) {
+    const row = grid[reel]?.indexOf('BONUS') ?? -1;
+    if (row < 0) return null;
+    positions.push({ reel, row });
+  }
+  return { positions };
+}
+
 /** Scatters pay anywhere on the grid, as a multiple of the total bet. */
 export function evaluateScatters(input: ScatterEvaluationInput): ScatterWin | null {
   const { grid, scatterPays, totalBet, multiplier } = input;

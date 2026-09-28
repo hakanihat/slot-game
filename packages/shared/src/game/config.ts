@@ -1,5 +1,5 @@
 import { PAYLINES } from './paylines.js';
-import { FREE_SPINS_AWARD, LINE_PAYS, SCATTER_PAYS } from './paytable.js';
+import { BONUS_GAME, BONUS_TILES, FREE_SPINS_AWARD, LINE_PAYS, SCATTER_PAYS } from './paytable.js';
 import { SYMBOLS } from './symbols.js';
 
 /**
@@ -17,6 +17,7 @@ export const GAME_CONFIG = {
   symbols: SYMBOLS,
   linePays: LINE_PAYS,
   scatterPays: SCATTER_PAYS,
+  bonusGame: { ...BONUS_GAME, tiles: BONUS_TILES },
   freeSpins: {
     award: FREE_SPINS_AWARD,
     /** Every win during Free Spins is multiplied by this value. */

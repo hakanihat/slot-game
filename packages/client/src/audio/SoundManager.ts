@@ -7,7 +7,9 @@ export type SoundId =
   | 'winSmall'
   | 'winBig'
   | 'featureStart'
-  | 'featureEnd';
+  | 'featureEnd'
+  | 'bonusReveal'
+  | 'bonusCollect';
 
 const MUTE_KEY = 'gem-rush.muted';
 
@@ -88,6 +90,14 @@ export class SoundManager {
         break;
       case 'featureStart':
         this.arpeggio([392, 523, 659, 784, 1047, 1319, 1568, 2093], t, 0.06, 0.25);
+        break;
+      case 'bonusReveal':
+        this.tone({ freq: 988, type: 'triangle', start: t, duration: 0.18, gain: 0.25 });
+        this.tone({ freq: 1319, type: 'triangle', start: t + 0.06, duration: 0.3, gain: 0.22 });
+        this.noise({ start: t, duration: 0.12, gain: 0.06, filterFrom: 3000, filterTo: 6000 });
+        break;
+      case 'bonusCollect':
+        this.arpeggio([784, 659, 523, 392], t, 0.08, 0.25);
         break;
       case 'featureEnd':
         this.arpeggio([1047, 784, 659, 784, 1047], t, 0.12, 0.3);

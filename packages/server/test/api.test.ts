@@ -119,3 +119,14 @@ describe('QA cheats', () => {
     expect(response.json<SpinResponse>().outcome.freeSpinsAwarded).toBe(10);
   });
 });
+
+describe('QA mode switch', () => {
+  it('enables cheats with the --qa flag (no shell-specific env syntax)', async () => {
+    const { loadEnv } = await import('../src/config/env.js');
+    expect(loadEnv({}, ['node', 'index.js', '--qa']).ENABLE_CHEATS).toBe(true);
+    expect(loadEnv({}, ['node', 'index.js']).ENABLE_CHEATS).toBe(false);
+    expect(() => loadEnv({ NODE_ENV: 'production' }, ['node', 'index.js', '--qa'])).toThrow(
+      /production/,
+    );
+  });
+});

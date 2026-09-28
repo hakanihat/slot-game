@@ -4,7 +4,8 @@ import type { SpeedProfile } from '../config/presentation';
 import { SkipSignal } from '../core/SkipSignal';
 import type { SymbolAssets } from './spine/symbolAssets';
 import { ReelView } from './ReelView';
-import { WinLinesView } from './WinLinesView';
+import { WinBadge } from './WinBadge';
+import { WinLinesView, lineColor } from './WinLinesView';
 
 export interface StopOptions {
   readonly speed: SpeedProfile;
@@ -29,6 +30,7 @@ const FILLER_SYMBOLS: readonly SymbolId[] = [
   'RUBY',
   'WILD',
   'SCATTER',
+  'BONUS',
 ];
 
 /**
@@ -38,6 +40,7 @@ const FILLER_SYMBOLS: readonly SymbolId[] = [
 export class ReelSetView extends Container {
   readonly reels: ReelView[];
   private readonly winLines: WinLinesView;
+  private readonly badge: WinBadge;
   private skipRequested = false;
   private readonly skip = new SkipSignal();
 
@@ -58,7 +61,8 @@ export class ReelSetView extends Container {
       return view;
     });
     this.winLines = new WinLinesView(config.paylines, cellSize);
-    this.addChild(...this.reels, this.winLines);
+    this.badge = new WinBadge(cellSize * 0.2);
+    this.addChild(...this.reels, this.winLines, this.badge);
   }
 
   get gridWidth(): number {
@@ -115,19 +119,42 @@ export class ReelSetView extends Container {
   }
 
   /** Highlights every win at once: winning cells pulse, everything else dims. */
-  showWins(lineWins: readonly LineWin[], scatterWin: ScatterWin | null): void {
+  /** Highlights every win at once, with the round's total in the centre. */
+  showWins(lineWins: readonly LineWin[], scatterWin: ScatterWin | null, totalLabel: string): void {
     const positions = [...lineWins.flatMap((w) => w.positions), ...(scatterWin?.positions ?? [])];
     this.highlight(positions);
     this.winLines.show(lineWins.map((w) => w.lineIndex));
+    this.badge.show(totalLabel, this.gridWidth / 2, this.gridHeight / 2, 0xffd54a);
   }
 
-  showSingleWin(win: LineWin | ScatterWin): void {
+  /**
+   * Shows one win with its payout. Line wins put the badge on the line, at the
+   * last symbol of the combination, where players look to see "how far" it went.
+   */
+  showSingleWin(win: LineWin | ScatterWin, label: string): void {
     this.highlight(win.positions);
-    this.winLines.show('lineIndex' in win ? [win.lineIndex] : []);
+    if ('lineIndex' in win) {
+      this.winLines.show([win.lineIndex]);
+      const last = win.positions[win.positions.length - 1] ?? { reel: 0, row: 0 };
+      const x = (last.reel + 0.5) * this.cellSize;
+      const y = (last.row + 0.5) * this.cellSize;
+      this.badge.show(label, x, y + this.cellSize * 0.32, lineColor(win.lineIndex));
+    } else {
+      this.winLines.clear();
+      this.badge.show(label, this.gridWidth / 2, this.gridHeight / 2, 0xff5ccf);
+    }
+  }
+
+  /** Highlights feature-trigger symbols (e.g. the three BONUS vaults) without lines or badges. */
+  showTrigger(positions: readonly Position[]): void {
+    this.winLines.clear();
+    this.badge.hide();
+    this.highlight(positions);
   }
 
   clearWins(): void {
     this.winLines.clear();
+    this.badge.hide();
     this.forEachVisible((view) => view.stopWinAnimation());
   }
 

@@ -1,6 +1,7 @@
 import type {
   ApiErrorBody,
   ApiErrorCode,
+  BonusPickResponse,
   CheatScenario,
   CreateSessionResponse,
   GameInfo,
@@ -58,6 +59,10 @@ export class ApiClient {
 
   spin(bet: number, cheat?: CheatScenario): Promise<SpinResponse> {
     return this.request('POST', '/api/spin', cheat ? { bet, cheat } : { bet });
+  }
+
+  pickBonus(tile: number): Promise<BonusPickResponse> {
+    return this.request('POST', '/api/bonus/pick', { tile });
   }
 
   history(): Promise<HistoryResponse> {

@@ -8,6 +8,7 @@ import {
   drawFacetedGem,
   drawGlow,
   drawLabel,
+  drawVault,
   drawRays,
   drawRoyal,
   drawShine,
@@ -29,6 +30,13 @@ import {
 export const BODY_SIZE = SYMBOL_UNIT_SIZE;
 export const RADIUS = BODY_SIZE * 0.4;
 
+/** Atlas size of each banner label (text + stroke + shadow). */
+const LABEL_SIZE = {
+  WILD: [300, 120],
+  SCATTER: [270, 76],
+  BONUS: [250, 92],
+} as const;
+
 // ── Atlas regions ─────────────────────────────────────────────────────
 
 export interface RegionSpec {
@@ -49,7 +57,8 @@ function bodyRegion(id: SymbolId): RegionSpec {
     width: BODY_SIZE,
     height: BODY_SIZE,
     draw: (ctx) => {
-      if (isRoyal(id)) drawRoyal(ctx, id, RADIUS);
+      if (id === 'BONUS') drawVault(ctx, RADIUS);
+      else if (isRoyal(id)) drawRoyal(ctx, id, RADIUS);
       else if (hasOutline(id))
         drawFacetedGem(ctx, OUTLINES[id], PALETTES[id], RADIUS, TABLE_SCALE[id]);
     },
@@ -60,15 +69,21 @@ export const REGIONS: readonly RegionSpec[] = [
   ...SYMBOL_IDS.map(bodyRegion),
   {
     name: 'WILD/label',
-    width: 300,
-    height: 120,
+    width: LABEL_SIZE.WILD[0],
+    height: LABEL_SIZE.WILD[1],
     draw: (ctx) => drawLabel(ctx, 'WILD', RADIUS * 0.62, PALETTES.WILD),
   },
   {
     name: 'SCATTER/label',
-    width: 240,
-    height: 84,
-    draw: (ctx) => drawLabel(ctx, 'BONUS', RADIUS * 0.4, PALETTES.SCATTER),
+    width: LABEL_SIZE.SCATTER[0],
+    height: LABEL_SIZE.SCATTER[1],
+    draw: (ctx) => drawLabel(ctx, 'SCATTER', RADIUS * 0.34, PALETTES.SCATTER),
+  },
+  {
+    name: 'BONUS/label',
+    width: LABEL_SIZE.BONUS[0],
+    height: LABEL_SIZE.BONUS[1],
+    draw: (ctx) => drawLabel(ctx, 'BONUS', RADIUS * 0.44, PALETTES.BONUS),
   },
   { name: 'fx/glow', width: 256, height: 256, draw: (ctx) => drawGlow(ctx, 128) },
   { name: 'fx/shine', width: 56, height: 300, draw: (ctx) => drawShine(ctx, 56, 300) },
@@ -93,8 +108,13 @@ const SHINE_END_X = 150;
 const LABEL_Y: Partial<Record<SymbolId, number>> = {
   WILD: -RADIUS * 0.12,
   SCATTER: -RADIUS * 0.78,
+  BONUS: -RADIUS * 0.6,
 };
-const RAY_COLOR: Partial<Record<SymbolId, string>> = { WILD: 'ffd24aff', SCATTER: 'ff5ccfff' };
+const RAY_COLOR: Partial<Record<SymbolId, string>> = {
+  WILD: 'ffd24aff',
+  SCATTER: 'ff5ccfff',
+  BONUS: 'c68cffff',
+};
 
 const hex = (css: string) => `${css.replace('#', '')}ff`;
 const glowColor = (id: SymbolId): string =>
@@ -163,10 +183,8 @@ function skinFor(id: SymbolId) {
 
   const labelY = LABEL_Y[id];
   if (labelY !== undefined) {
-    const size = id === 'WILD' ? [300, 120] : [240, 84];
-    attachments.label = {
-      label: region(`${id}/label`, size[0] ?? 0, size[1] ?? 0, { y: round(labelY) }),
-    };
+    const [width, height] = LABEL_SIZE[id as keyof typeof LABEL_SIZE];
+    attachments.label = { label: region(`${id}/label`, width, height, { y: round(labelY) }) };
   }
   const rayColor = RAY_COLOR[id];
   if (rayColor)

@@ -1,4 +1,4 @@
-import type { SymbolId } from '@gem-rush/shared';
+import { expectedBonusMultiplier, type SymbolId } from '@gem-rush/shared';
 import type { MathModel, ReelSet } from './types.js';
 
 export interface ModeBreakdown {
@@ -21,6 +21,13 @@ export interface RtpReport {
   readonly featureFrequency: number;
   readonly baseRtp: number;
   readonly featureRtp: number;
+  /** Probability a base spin triggers the Gem Vault bonus. */
+  readonly bonusProbability: number;
+  /** Average base-game spins between bonus triggers. */
+  readonly bonusFrequency: number;
+  /** Expected bonus win, × total bet. */
+  readonly bonusValue: number;
+  readonly bonusRtp: number;
   readonly totalRtp: number;
 }
 
@@ -35,6 +42,8 @@ export interface RtpReport {
  * - Scatters: the strip builder guarantees at most one scatter per visible
  *   window, so reel r shows a scatter with probability rows·count/length and
  *   the scatter count follows a Poisson-binomial distribution.
+ * - Bonus: P(trigger) is the product of per-reel BONUS visibility on the
+ *   trigger reels; its value has a closed form (see `expectedBonusMultiplier`).
  * - Free Spins: each feature spin can award more spins (a branching process),
  *   so the expected spins per feature is N / (1 − a) where a is the expected
  *   award per feature spin.
@@ -56,6 +65,14 @@ export function computeTheoreticalRtp(model: MathModel): RtpReport {
   const averageAward =
     base.triggerProbability > 0 ? base.expectedAward / base.triggerProbability : 0;
 
+  // Bonus: reels are independent and each window holds at most one BONUS.
+  const bonusProbability = config.bonusGame.triggerReels.reduce(
+    (p, reel) => p * config.rows * symbolProbability(model.reelSets.base, reel, 'BONUS'),
+    1,
+  );
+  const bonusValue = expectedBonusMultiplier(config.bonusGame);
+  const bonusRtp = bonusProbability * bonusValue;
+
   return {
     base,
     freeSpins,
@@ -63,16 +80,17 @@ export function computeTheoreticalRtp(model: MathModel): RtpReport {
     featureFrequency: base.triggerProbability > 0 ? 1 / base.triggerProbability : Infinity,
     baseRtp,
     featureRtp,
-    totalRtp: baseRtp + featureRtp,
+    bonusProbability,
+    bonusFrequency: bonusProbability > 0 ? 1 / bonusProbability : Infinity,
+    bonusValue,
+    bonusRtp,
+    totalRtp: baseRtp + featureRtp + bonusRtp,
   };
 }
 
 function analyseReelSet(model: MathModel, reelSet: ReelSet): ModeBreakdown {
   const { config } = model;
-  const probability = (reel: number, symbol: SymbolId): number => {
-    const strip = reelSet[reel] ?? [];
-    return strip.filter((s) => s === symbol).length / strip.length;
-  };
+  const probability = (reel: number, symbol: SymbolId) => symbolProbability(reelSet, reel, symbol);
 
   if (probability(0, 'WILD') > 0) {
     throw new Error('Closed-form line RTP assumes no wilds on reel 1');
@@ -108,6 +126,11 @@ function analyseReelSet(model: MathModel, reelSet: ReelSet): ModeBreakdown {
   });
 
   return { lines, scatters, triggerProbability, expectedAward };
+}
+
+function symbolProbability(reelSet: ReelSet, reel: number, symbol: SymbolId): number {
+  const strip = reelSet[reel] ?? [];
+  return strip.length === 0 ? 0 : strip.filter((s) => s === symbol).length / strip.length;
 }
 
 /** Distribution of the number of successes over independent trials with different probabilities. */

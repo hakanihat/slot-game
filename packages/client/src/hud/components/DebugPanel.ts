@@ -3,13 +3,14 @@ import { el } from '../../core/dom';
 
 const LABELS: Readonly<Record<CheatScenario, string>> = {
   freeSpins: 'Free Spins',
+  bonus: 'Gem Vault Bonus',
   bigWin: 'Big Win',
   anticipation: 'Anticipation',
 };
 
 /**
- * QA panel for forcing outcomes (open the game with `?debug`). The server
- * must also run with ENABLE_CHEATS=true, so this can never affect real play.
+ * QA panel for forcing outcomes. Only shown when the server runs in QA mode
+ * (`npm run dev:qa`), and only honoured there, so it can never affect real play.
  */
 export function createDebugPanel(onCheat: (scenario: CheatScenario) => void): HTMLElement {
   return el('aside', { class: 'debug-panel', 'aria-label': 'QA tools' }, [

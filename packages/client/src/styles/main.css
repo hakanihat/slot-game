@@ -367,6 +367,12 @@ button:disabled {
   font-size: 16px;
 }
 
+.spin-btn[data-mode='bonus'] {
+  background: radial-gradient(circle at 35% 30%, #e9ccff, #8f3fe0 70%, #240846);
+  border-color: #f3dcff;
+  color: #fff;
+}
+
 .spin-btn[data-mode='free'] {
   background: radial-gradient(circle at 35% 30%, #ffb3ec, #c21e8f 70%, #4a0033);
   border-color: #ffd6f5;

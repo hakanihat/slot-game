@@ -7,6 +7,10 @@ export const SpinRequestSchema = z.object({
   cheat: z.enum(CHEAT_SCENARIOS).optional(),
 });
 
+export const BonusPickRequestSchema = z.object({
+  tile: z.number().int().min(0),
+});
+
 /** Parses untrusted input, converting validation failures into a 400. */
 export function parse<T>(schema: z.ZodType<T>, input: unknown): T {
   const result = schema.safeParse(input);

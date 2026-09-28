@@ -47,10 +47,15 @@ export class PaytableModal {
       el('p', { class: 'paytable__bet', text: `Values shown for a total bet of ${format(bet)}.` }),
       el('section', { class: 'paytable__features' }, [
         this.featureCard('WILD', 'Wild', [
-          `Substitutes for every symbol except BONUS.`,
+          `Substitutes for every symbol except SCATTER and BONUS.`,
           `Lands on reels ${info.wildReels.map((r) => r + 1).join(', ')}.`,
         ]),
-        this.featureCard('SCATTER', 'Bonus Scatter', ['Pays anywhere on the reels:'], scatterRows),
+        this.featureCard('SCATTER', 'Star Scatter', ['Pays anywhere on the reels:'], scatterRows),
+        this.featureCard('BONUS', 'Gem Vault Bonus', [
+          `A BONUS on reels ${info.bonusGame.triggerReels.map((r) => r + 1).join(', ')} starts the Gem Vault.`,
+          `Open vaults to win ${Math.min(...info.bonusGame.prizes)}× to ${Math.max(...info.bonusGame.prizes)}× your bet (${format(Math.min(...info.bonusGame.prizes) * bet)} – ${format(Math.max(...info.bonusGame.prizes) * bet)}) until you find one of ${info.bonusGame.collects} COLLECT vaults. The first vault always pays.`,
+          'Prizes are decided when the bonus starts; which vault you open does not change the outcome.',
+        ]),
         el('article', { class: 'feature-card feature-card--accent' }, [
           el('h3', { text: 'Free Spins' }),
           el('p', {

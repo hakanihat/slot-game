@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { GAME_CONFIG, type SessionState } from '@gem-rush/shared';
+import { toBonusState } from '../domain/bonus/ActiveBonus.js';
 import type { Session } from '../domain/session/Session.js';
 import { AppError } from './errors.js';
 import type { Clock, SessionRepository, Wallet } from './ports.js';
@@ -31,6 +32,7 @@ export class SessionService {
       createdAt: now,
       lastActiveAt: now,
       freeSpins: null,
+      bonus: null,
       lastRound: null,
       history: [],
     };
@@ -55,6 +57,7 @@ export class SessionService {
       balance: await this.wallet.balance(session.id),
       currency: GAME_CONFIG.currency,
       freeSpins: session.freeSpins,
+      bonus: session.bonus ? toBonusState(session.bonus) : null,
       lastRound: session.lastRound,
     };
   }
@@ -66,7 +69,7 @@ export class SessionService {
   async refill(session: Session): Promise<SessionState> {
     const balance = await this.wallet.balance(session.id);
     const minBet = Math.min(...GAME_CONFIG.betLevels);
-    if (session.freeSpins || balance >= minBet) {
+    if (session.freeSpins || session.bonus || balance >= minBet) {
       throw new AppError(
         'REFILL_NOT_ALLOWED',
         'Refill is only available when you are out of credits',

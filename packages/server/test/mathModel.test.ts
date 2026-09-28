@@ -19,6 +19,22 @@ describe('math model', () => {
     expect(report.featureFrequency).toBeLessThan(250);
   });
 
+  it('triggers the Gem Vault bonus roughly once every 200-400 spins', () => {
+    expect(report.bonusFrequency).toBeGreaterThan(200);
+    expect(report.bonusFrequency).toBeLessThan(400);
+  });
+
+  it('places BONUS only on the trigger reels of the base game', () => {
+    GEM_RUSH_MODEL.reelSets.base.forEach((strip, reel) =>
+      expect(strip.includes('BONUS')).toBe(
+        (GAME_CONFIG.bonusGame.triggerReels as readonly number[]).includes(reel),
+      ),
+    );
+    GEM_RUSH_MODEL.reelSets.freeSpins.forEach((strip) =>
+      expect(strip.includes('BONUS')).toBe(false),
+    );
+  });
+
   it('keeps free spins retriggers bounded', () => {
     expect(report.freeSpins.expectedAward).toBeLessThan(0.5);
   });
@@ -31,10 +47,13 @@ describe('math model', () => {
       });
     });
 
-    it(`${mode}: never shows two scatters on one reel`, () => {
+    it(`${mode}: never shows two scatters or two bonus symbols on one reel`, () => {
       reelSet.forEach((strip) =>
         expect(
-          satisfiesSpacing(strip, { spacedSymbols: ['SCATTER'], windowSize: GAME_CONFIG.rows }),
+          satisfiesSpacing(strip, {
+            spacedSymbols: ['SCATTER', 'BONUS'],
+            windowSize: GAME_CONFIG.rows,
+          }),
         ).toBe(true),
       );
     });

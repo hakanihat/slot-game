@@ -25,8 +25,15 @@ const EnvSchema = z.object({
 export type Env = z.infer<typeof EnvSchema>;
 
 /** Fails fast at boot with a readable message instead of misbehaving at runtime. */
-export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const parsed = EnvSchema.safeParse(source);
+/** Command-line switch equivalent to ENABLE_CHEATS=true (no shell-specific env syntax needed). */
+export const QA_FLAG = '--qa';
+
+export function loadEnv(
+  source: NodeJS.ProcessEnv = process.env,
+  argv: readonly string[] = process.argv,
+): Env {
+  const withFlags = argv.includes(QA_FLAG) ? { ...source, ENABLE_CHEATS: 'true' } : source;
+  const parsed = EnvSchema.safeParse(withFlags);
   if (!parsed.success) {
     throw new Error(`Invalid environment configuration:\n${z.prettifyError(parsed.error)}`);
   }

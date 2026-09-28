@@ -13,6 +13,7 @@ export const SYMBOL_IDS = [
   'RUBY',
   'WILD',
   'SCATTER',
+  'BONUS',
 ] as const;
 
 export type SymbolId = (typeof SYMBOL_IDS)[number];
@@ -21,8 +22,9 @@ export type SymbolId = (typeof SYMBOL_IDS)[number];
  * - `low` / `high`: regular paying symbols (royals vs. gems).
  * - `wild`: substitutes for every regular symbol on a payline.
  * - `scatter`: pays anywhere on the grid and triggers the Free Spins feature.
+ * - `bonus`: no pay of its own; one on each of reels 1, 3 and 5 starts the Gem Vault bonus game.
  */
-export type SymbolKind = 'low' | 'high' | 'wild' | 'scatter';
+export type SymbolKind = 'low' | 'high' | 'wild' | 'scatter' | 'bonus';
 
 export interface SymbolDefinition {
   readonly id: SymbolId;
@@ -41,6 +43,7 @@ export const SYMBOLS: Readonly<Record<SymbolId, SymbolDefinition>> = {
   RUBY: { id: 'RUBY', name: 'Ruby', kind: 'high' },
   WILD: { id: 'WILD', name: 'Wild', kind: 'wild' },
   SCATTER: { id: 'SCATTER', name: 'Star Scatter', kind: 'scatter' },
+  BONUS: { id: 'BONUS', name: 'Vault Bonus', kind: 'bonus' },
 };
 
 export const isSymbolId = (value: unknown): value is SymbolId =>

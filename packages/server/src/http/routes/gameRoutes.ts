@@ -1,5 +1,6 @@
 import { GAME_CONFIG } from '@gem-rush/shared';
 import type {
+  BonusPickResponse,
   CreateSessionResponse,
   GameInfo,
   HistoryResponse,
@@ -9,14 +10,17 @@ import type {
 import type { FastifyInstance } from 'fastify';
 import type { Container } from '../../container.js';
 import { bearerToken } from '../auth.js';
-import { parse, SpinRequestSchema } from '../schemas.js';
+import { BonusPickRequestSchema, parse, SpinRequestSchema } from '../schemas.js';
 
 /**
  * REST API. Handlers stay thin: authenticate, validate, delegate to an
  * application service, return its DTO.
  */
-export async function gameRoutes(app: FastifyInstance, { sessions, spins, rtp }: Container) {
-  const gameInfo: GameInfo = { ...GAME_CONFIG, rtp };
+export async function gameRoutes(
+  app: FastifyInstance,
+  { sessions, spins, bonus, rtp, cheatsEnabled }: Container,
+) {
+  const gameInfo: GameInfo = { ...GAME_CONFIG, rtp, cheatsEnabled };
 
   app.get('/api/health', async () => ({ status: 'ok' }));
 
@@ -42,6 +46,12 @@ export async function gameRoutes(app: FastifyInstance, { sessions, spins, rtp }:
     const session = await sessions.authenticate(bearerToken(request));
     const { bet, cheat } = parse(SpinRequestSchema, request.body);
     return spins.spin(session, bet, cheat);
+  });
+
+  app.post('/api/bonus/pick', async (request): Promise<BonusPickResponse> => {
+    const session = await sessions.authenticate(bearerToken(request));
+    const { tile } = parse(BonusPickRequestSchema, request.body);
+    return bonus.pick(session, tile);
   });
 
   app.get('/api/history', async (request): Promise<HistoryResponse> => {

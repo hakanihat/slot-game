@@ -1,7 +1,7 @@
 import { lineBetFor, type SpinMode } from '@gem-rush/shared';
-import type { LineWin, ScatterWin } from '@gem-rush/shared';
+import type { LineWin, Position, ScatterWin } from '@gem-rush/shared';
 import type { Rng } from '../rng/Rng.js';
-import { evaluateLines, evaluateScatters } from './evaluator.js';
+import { evaluateBonusTrigger, evaluateLines, evaluateScatters } from './evaluator.js';
 import type { Grid, MathModel, ReelSet } from './types.js';
 
 export interface EngineResult {
@@ -14,6 +14,7 @@ export interface EngineResult {
   readonly multiplier: number;
   readonly totalWin: number;
   readonly freeSpinsAwarded: number;
+  readonly bonusTrigger: { readonly positions: readonly Position[] } | null;
 }
 
 /**
@@ -63,7 +64,22 @@ export class SlotEngine {
 
     const totalWin = lineWins.reduce((sum, win) => sum + win.amount, 0) + (scatterWin?.amount ?? 0);
 
-    return { mode, bet, stops, grid, lineWins, scatterWin, multiplier, totalWin, freeSpinsAwarded };
+    // The bonus is a base-game feature; free-spin strips carry no BONUS symbols.
+    const bonusTrigger =
+      mode === 'base' ? evaluateBonusTrigger(grid, config.bonusGame.triggerReels) : null;
+
+    return {
+      mode,
+      bet,
+      stops,
+      grid,
+      lineWins,
+      scatterWin,
+      multiplier,
+      totalWin,
+      freeSpinsAwarded,
+      bonusTrigger,
+    };
   }
 }
 

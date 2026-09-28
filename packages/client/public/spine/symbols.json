@@ -649,8 +649,8 @@
     "label": {
      "label": {
       "path": "SCATTER/label",
-      "width": 240,
-      "height": 84,
+      "width": 270,
+      "height": 76,
       "y": -79.87
      }
     },
@@ -662,6 +662,95 @@
       "scaleX": 1.2,
       "scaleY": 1.2,
       "color": "ff5ccfff"
+     }
+    }
+   }
+  },
+  {
+   "name": "BONUS",
+   "attachments": {
+    "body": {
+     "body": {
+      "path": "BONUS/body",
+      "width": 256,
+      "height": 256
+     }
+    },
+    "glow": {
+     "glow": {
+      "path": "fx/glow",
+      "width": 256,
+      "height": 256,
+      "scaleX": 1.35,
+      "scaleY": 1.35,
+      "color": "c68cffff"
+     }
+    },
+    "sparkle2": {
+     "sparkle": {
+      "path": "fx/sparkle",
+      "width": 80,
+      "height": 80
+     }
+    },
+    "clip": {
+     "clip": {
+      "type": "clipping",
+      "end": "shine",
+      "vertexCount": 9,
+      "vertices": [
+       -90.11,
+       -83.97,
+       -90.11,
+       43.01,
+       -63.49,
+       71.68,
+       -32.77,
+       86.02,
+       0,
+       90.11,
+       32.77,
+       86.02,
+       63.49,
+       71.68,
+       90.11,
+       43.01,
+       90.11,
+       -83.97
+      ]
+     }
+    },
+    "shine": {
+     "shine": {
+      "path": "fx/shine",
+      "width": 56,
+      "height": 300,
+      "rotation": -20
+     }
+    },
+    "sparkle1": {
+     "sparkle": {
+      "path": "fx/sparkle",
+      "width": 80,
+      "height": 80
+     }
+    },
+    "label": {
+     "label": {
+      "path": "BONUS/label",
+      "width": 250,
+      "height": 92,
+      "y": -61.44
+     }
+    },
+    "rays": {
+     "rays": {
+      "path": "fx/rays",
+      "width": 320,
+      "height": 320,
+      "scaleX": 1.2,
+      "scaleY": 1.2,
+      "color": "c68cffff"
      }
     }
    }

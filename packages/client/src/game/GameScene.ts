@@ -5,6 +5,7 @@ import type { SymbolAssets } from './spine/symbolAssets';
 import { Background } from './Background';
 import { Logo } from './Logo';
 import { BannerOverlay } from './overlays/BannerOverlay';
+import { BonusGameView } from './overlays/BonusGameView';
 import { BigWinOverlay } from './overlays/BigWinOverlay';
 import { ReelFrame } from './ReelFrame';
 import { ReelSetView } from './ReelSetView';
@@ -30,6 +31,7 @@ export class GameScene extends Container {
   readonly reels: ReelSetView;
   readonly bigWin: BigWinOverlay;
   readonly banner: BannerOverlay;
+  readonly bonus: BonusGameView;
   private readonly background: Background;
   private readonly machine = new Container();
 
@@ -57,8 +59,10 @@ export class GameScene extends Container {
 
     this.bigWin = new BigWinOverlay(createCoinTexture(), reducedMotion ? 0 : 45);
     this.banner = new BannerOverlay();
+    this.bonus = new BonusGameView(symbols.textures.texture('BONUS'));
 
-    this.addChild(this.background, this.machine, this.bigWin, this.banner);
+    // Banner and big win sit above the bonus so its intro/outro can overlay it.
+    this.addChild(this.background, this.machine, this.bonus, this.bigWin, this.banner);
   }
 
   setTheme(mode: 'base' | 'feature'): void {
@@ -78,5 +82,6 @@ export class GameScene extends Container {
     const overlayScale = Math.min(width / 1100, height / 720, 1);
     this.bigWin.resize(width, height, overlayScale);
     this.banner.resize(width, height, overlayScale);
+    this.bonus.resize(width, height, insets);
   }
 }

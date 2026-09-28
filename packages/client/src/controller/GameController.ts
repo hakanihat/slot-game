@@ -1,4 +1,6 @@
 import type {
+  BonusPickResponse,
+  BonusState,
   CheatScenario,
   GameInfo,
   LineWin,
@@ -22,7 +24,11 @@ const MESSAGES = {
   idle: 'Place your bet and press SPIN',
   spinning: 'Good luck!',
   feature: 'Free Spins in play — all wins ×3',
+  bonus: 'Gem Vault — pick a vault!',
 } as const;
+
+/** Delay between automatic vault picks during autoplay. */
+const AUTO_PICK_DELAY_MS = 750;
 
 export interface ControllerDependencies {
   readonly api: ApiClient;
@@ -63,6 +69,9 @@ export class GameController implements HudActions {
     const { store, scene } = this.deps;
     this.currentGrid = grid;
     scene.reels.setGrid(grid);
+    const { bonus } = store.get();
+    // An unfinished bonus is always played first — it was triggered before any free spins.
+    if (bonus) await this.playBonus(bonus, true);
     const { freeSpins } = store.get();
 
     if (freeSpins) {
@@ -106,6 +115,10 @@ export class GameController implements HudActions {
       case 'presenting':
         this.hud.skipRollup();
         this.skip.trigger();
+        break;
+      case 'bonus':
+        // Keyboard / spin button during the pick game: choose a vault for the player.
+        if (scene.bonus.waitingForPick) scene.bonus.pickRandom();
         break;
       case 'loading':
         break;
@@ -230,11 +243,14 @@ export class GameController implements HudActions {
     store.set({ phase: 'presenting' });
     await this.presentOutcome(response, speed);
     store.set({ balance: response.balance, freeSpins: response.freeSpins });
+    const bonusWin = response.bonus
+      ? await this.playBonus(response.bonus, false, response.outcome.bonusTrigger?.positions)
+      : 0;
     await this.presentFeatureTransitions(response);
 
     const next = store.get();
     store.set({ phase: 'idle', message: next.freeSpins ? MESSAGES.feature : next.message });
-    await this.continueAutomatically(response);
+    await this.continueAutomatically(response, bonusWin);
   }
 
   private async stopReels(grid: Grid, speed: SpeedProfile): Promise<void> {
@@ -265,7 +281,7 @@ export class GameController implements HudActions {
       return;
     }
 
-    scene.reels.showWins(outcome.lineWins, outcome.scatterWin);
+    scene.reels.showWins(outcome.lineWins, outcome.scatterWin, format(win));
     const tier = winTierFor(win, outcome.bet);
     const duration = rollupDurationMs(win, outcome.bet) * (store.get().turbo ? 0.5 : 1);
 
@@ -289,7 +305,8 @@ export class GameController implements HudActions {
     const automatic =
       store.get().autoplay !== null ||
       store.get().freeSpins !== null ||
-      outcome.freeSpinsAwarded > 0;
+      outcome.freeSpinsAwarded > 0 ||
+      outcome.bonusTrigger !== null;
     if (automatic) await this.skip.wait(speed.winShowMs);
     else this.startLineCycle(outcome.lineWins, outcome.scatterWin);
   }
@@ -339,7 +356,10 @@ export class GameController implements HudActions {
   }
 
   /** Keeps Free Spins flowing, and runs Autoplay with its stop conditions. */
-  private async continueAutomatically({ outcome, featureEnded }: SpinResponse): Promise<void> {
+  private async continueAutomatically(
+    { outcome, featureEnded }: SpinResponse,
+    bonusWin: number,
+  ): Promise<void> {
     const { store, info } = this.deps;
     const state = store.get();
 
@@ -353,7 +373,7 @@ export class GameController implements HudActions {
     if (!autoplay) return;
 
     const bet = info.betLevels[state.betIndex] ?? 0;
-    const roundWin = featureEnded?.totalWin ?? outcome.totalWin;
+    const roundWin = (featureEnded?.totalWin ?? outcome.totalWin) + bonusWin;
     const reason =
       autoplay.remaining <= 0
         ? 'Autoplay finished'
@@ -371,6 +391,98 @@ export class GameController implements HudActions {
     }
     await wait(this.speed.autoSpinDelayMs);
     if (store.get().autoplay) void this.spin();
+  }
+
+  // ── Gem Vault bonus ─────────────────────────────────────────
+
+  /**
+   * Runs the pick game until a COLLECT. Every pick is a server call; the view
+   * only reveals what the server returns. Returns the bonus total.
+   */
+  private async playBonus(
+    initial: BonusState,
+    resumed: boolean,
+    triggerPositions?: readonly { reel: number; row: number }[],
+  ): Promise<number> {
+    const { scene, store, sound, api, format } = this.deps;
+    const auto = () => store.get().autoplay !== null;
+
+    // During the bonus the WIN meter tracks the bonus total (also correct after a resume).
+    store.set({ phase: 'bonus', bonus: initial, win: initial.totalWin, message: MESSAGES.bonus });
+    if (triggerPositions) {
+      scene.reels.showTrigger(triggerPositions);
+      await this.skip.wait(this.speed.winShowMs);
+    }
+    if (!resumed && store.get().autoplay?.stopOnFeature) {
+      this.stopAutoplay('Autoplay stopped — Gem Vault bonus!');
+    }
+    sound.play('featureStart');
+    await scene.banner.show({
+      title: resumed ? 'WELCOME BACK' : 'GEM VAULT',
+      body: 'Open vaults to reveal prizes — COLLECT ends the bonus',
+      hint: auto() ? '' : 'Tap to start',
+      autoCloseMs: auto() ? 2200 : undefined,
+    });
+    scene.reels.clearWins();
+    await scene.bonus.open(initial, format);
+
+    let totalWin = initial.totalWin;
+    let finished: BonusPickResponse['finished'] = null;
+    while (!finished) {
+      const tile = await (auto() ? this.autoPick() : scene.bonus.nextPick());
+      let response: BonusPickResponse;
+      try {
+        response = await api.pickBonus(tile);
+      } catch (error) {
+        this.stopAutoplay();
+        this.handleError(error);
+        if (error instanceof ApiError && error.code === 'UNAUTHORIZED') break;
+        continue; // the player can simply pick again
+      }
+      sound.play(response.pick.prize.kind === 'prize' ? 'bonusReveal' : 'bonusCollect');
+      totalWin = response.finished?.totalWin ?? response.bonus?.totalWin ?? totalWin;
+      await scene.bonus.reveal(response.pick, totalWin);
+      store.set({ balance: response.balance, bonus: response.bonus, win: totalWin });
+      finished = response.finished;
+    }
+
+    if (finished) await scene.bonus.revealRest(finished.unrevealed);
+    await this.skip.wait(1600);
+    await scene.bonus.close();
+
+    const tier = winTierFor(totalWin, initial.bet);
+    if (tier) {
+      await scene.bigWin.play({
+        amount: totalWin,
+        bet: initial.bet,
+        durationMs: rollupDurationMs(totalWin, initial.bet),
+        format,
+        onTier: () => sound.play('winBig'),
+      });
+    } else {
+      sound.play('featureEnd');
+      await scene.banner.show({
+        title: 'BONUS WIN',
+        body: format(totalWin),
+        hint: auto() ? '' : 'Tap to continue',
+        autoCloseMs: auto() ? 2200 : undefined,
+      });
+    }
+    store.set({
+      phase: 'presenting',
+      bonus: null,
+      win: totalWin,
+      message: `Gem Vault paid ${format(totalWin)}`,
+    });
+    return totalWin;
+  }
+
+  private autoPick(): Promise<number> {
+    const { scene } = this.deps;
+    const choice = scene.bonus.nextPick();
+    // A player tap during the delay still wins; pickRandom is then a no-op.
+    void wait(AUTO_PICK_DELAY_MS).then(() => scene.bonus.pickRandom());
+    return choice;
   }
 
   // ── Idle win cycling ────────────────────────────────────────
@@ -391,7 +503,7 @@ export class GameController implements HudActions {
       await wait(1200);
       for (let i = 0; this.lineCycleToken === token; i = (i + 1) % wins.length) {
         const win = wins[i] as LineWin | ScatterWin;
-        scene.reels.showSingleWin(win);
+        scene.reels.showSingleWin(win, format(win.amount));
         store.set({ message: describe(win) });
         await wait(1400);
       }

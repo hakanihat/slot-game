@@ -2,7 +2,7 @@
   "name": "gem-rush",
   "private": true,
   "version": "1.0.0",
-  "description": "Gem Rush — a full-stack, server-authoritative 5x3 video slot built as a portfolio piece.",
+  "description": "Gem Rush \u2014 a full-stack, server-authoritative 5x3 video slot built as a portfolio piece.",
   "type": "module",
   "workspaces": [
     "packages/shared",
@@ -22,7 +22,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "simulate": "npm run build -w @gem-rush/shared && npm run simulate -w @gem-rush/server",
-    "spine:build": "npm run spine:build -w @gem-rush/client"
+    "spine:build": "npm run spine:build -w @gem-rush/client",
+    "dev:qa": "npm run build -w @gem-rush/shared && concurrently -n server,client -c cyan,magenta \"npm run dev:qa -w @gem-rush/server\" \"npm run dev -w @gem-rush/client\""
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

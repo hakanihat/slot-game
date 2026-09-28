@@ -1,12 +1,13 @@
-import type { CheatScenario, FreeSpinsState } from '@gem-rush/shared';
+import type { BonusState, CheatScenario, FreeSpinsState } from '@gem-rush/shared';
 
 /**
  * - `loading`: booting / restoring the session.
  * - `idle`: waiting for the player.
  * - `spinning`: request in flight and/or reels moving.
  * - `presenting`: showing wins, big-win or feature banners.
+ * - `bonus`: the Gem Vault pick game is on screen.
  */
-export type Phase = 'loading' | 'idle' | 'spinning' | 'presenting';
+export type Phase = 'loading' | 'idle' | 'spinning' | 'presenting' | 'bonus';
 
 export interface AutoplaySettings {
   readonly spins: number;
@@ -30,6 +31,8 @@ export interface GameState {
   /** Last round's win as shown in the WIN meter. */
   readonly win: number;
   readonly freeSpins: FreeSpinsState | null;
+  /** Gem Vault bonus in progress. */
+  readonly bonus: BonusState | null;
   readonly autoplay: AutoplayState | null;
   readonly turbo: boolean;
   readonly muted: boolean;

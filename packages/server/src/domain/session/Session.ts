@@ -1,3 +1,4 @@
+import type { ActiveBonus } from '../bonus/ActiveBonus.js';
 import type { FreeSpinsState, HistoryEntry, SpinOutcome } from '@gem-rush/shared';
 
 /**
@@ -12,6 +13,8 @@ export interface Session {
   readonly createdAt: number;
   lastActiveAt: number;
   freeSpins: FreeSpinsState | null;
+  /** Gem Vault bonus awaiting picks; blocks spinning until finished. */
+  bonus: ActiveBonus | null;
   lastRound: SpinOutcome | null;
   history: HistoryEntry[];
 }
